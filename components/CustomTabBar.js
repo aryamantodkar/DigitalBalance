@@ -1,51 +1,65 @@
-import { StyleSheet, Text, View,TouchableOpacity,Animated} from 'react-native'
-import React, {useState,useEffect} from 'react'
+import { StyleSheet, View, TouchableOpacity, Animated } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
 import Entypo from '@expo/vector-icons/Entypo';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-
 const CustomTabBar = ({ state, descriptors, navigation }) => {
-    const [circlePosition] = useState(new Animated.Value(0)); // Circle position
-    const [circleSize] = useState(new Animated.Value(45)); // Circle size
+    const circleSizeValue = 45; // Fixed size for the circle
+    const [circlePosition] = useState(new Animated.Value(-circleSizeValue)); // Start offscreen
+    const tabPositions = useRef([]); // Store tab positions dynamically
+    const [layoutReady, setLayoutReady] = useState(false); // Flag to detect layout readiness
 
     const icons = [
         <Ionicons name="home-outline" size={25} color="gray" />,
         <Entypo name="plus" size={25} color="gray" />,
         <AntDesign name="user" size={25} color="gray" />
-    ]
+    ];
 
     const iconsFocused = [
         <Entypo name="home" size={25} color="black" />,
         <Entypo name="plus" size={25} color="black" />,
         <Ionicons name="person" size={25} color="black" />
-    ]
+    ];
+
+    const handleTabLayout = (event, index) => {
+        const { x, width } = event.nativeEvent.layout;
+        tabPositions.current[index] = { x, width };
+
+        // Ensure circle position is set on initial load
+        if (!layoutReady && index === state.index) {
+            Animated.spring(circlePosition, {
+                toValue: x + width / 2 - circleSizeValue / 2,
+                useNativeDriver: false,
+            }).start(() => setLayoutReady(true));
+        }
+    };
 
     useEffect(() => {
-        // Update circle position based on focused tab index
-        Animated.spring(circlePosition, {
-            toValue: state.index==0 ? state.index * (100) + 5 : (state.index==1 ? state.index * (100) : state.index * (98)), // Adjust this based on your layout
-            useNativeDriver: false,
-        }).start();
-        
-    }, [state.index]);
+        if (layoutReady) {
+            const { x, width } = tabPositions.current[state.index] || { x: 0, width: 0 };
+            Animated.spring(circlePosition, {
+                toValue: x + width / 2 - circleSizeValue / 2,
+                useNativeDriver: false,
+            }).start();
+        }
+    }, [state.index, layoutReady]);
 
     return (
         <View style={styles.customTabBar}>
-            <Animated.View
-                style={[
-                    styles.circle,
-                    {
-                        transform: [{ translateX: circlePosition }],
-                        width: circleSize,
-                        height: circleSize,
-                        borderRadius: circleSize.interpolate({
-                            inputRange: [50, 60],
-                            outputRange: [25, 30], // Half of the size for border radius
-                        }),
-                    },
-                ]}
-            />
+            {layoutReady && (
+                <Animated.View
+                    style={[
+                        styles.circle,
+                        {
+                            transform: [{ translateX: circlePosition }],
+                            width: circleSizeValue,
+                            height: circleSizeValue,
+                            borderRadius: circleSizeValue / 2,
+                        },
+                    ]}
+                />
+            )}
             {state.routes.map((route, index) => {
                 const isFocused = state.index === index;
 
@@ -58,45 +72,44 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
                     if (!isFocused && !event.defaultPrevented) {
                         navigation.navigate(route.name);
                     }
-                    
                 };
 
                 return (
                     <TouchableOpacity
                         key={route.key}
                         onPress={onPress}
-                        style={[
-                        styles.tabButton,
-                        isFocused ? styles.activeTab : styles.inactiveTab,
-                        ]}
-                    >   
-                        <View style={{ alignItems: 'center', padding: 10}}>
+                        style={styles.tabButton}
+                        onLayout={(event) => handleTabLayout(event, index)} // Capture tab layout
+                    >
+                        <View style={{ alignItems: 'center', padding: 10 }}>
                             {React.cloneElement(isFocused ? iconsFocused[index] : icons[index])}
                         </View>
-                         
                     </TouchableOpacity>
                 );
             })}
-            </View>
+        </View>
     );
 };
 
-export default CustomTabBar
+export default CustomTabBar;
 
 const styles = StyleSheet.create({
     customTabBar: {
-        width: '70%',
-        display: 'flex',
-        justifyContent: 'space-between',
+        width: '90%', // Reduced width for the navbar
+        flexDirection: 'row',
+        justifyContent: 'space-around',
         alignItems: 'center',
         backgroundColor: '#fff',
-        margin: 'auto',
+        paddingVertical: 10,
         borderRadius: 50,
-        flexDirection: 'row',
-        padding: 5,
+        alignSelf: 'center',
     },
     circle: {
         position: 'absolute',
         backgroundColor: '#f5f4f4',
     },
-})
+    tabButton: {
+        flex: 1,
+        alignItems: 'center',
+    },
+});
