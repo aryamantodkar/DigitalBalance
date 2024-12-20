@@ -2,9 +2,9 @@ import { StyleSheet, Text, View,SafeAreaView } from 'react-native'
 import React from 'react'
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import LogTime from './LogTime';
-import HomePage from './HomePage';
-import AccountPage from './AccountPage';
+import LogTime from '../screens/LogTime';
+import HomePage from '../screens/HomePage';
+import AccountPage from '../screens/AccountPage';
 import CustomTabBar from './CustomTabBar';
 
 const Navbar = () => {
