@@ -1,14 +1,14 @@
-import { StyleSheet, Text, View, KeyboardAvoidingView,Keyboard,Image, TouchableWithoutFeedback,Platform,FlatList, Pressable, TextInput, Dimensions } from 'react-native'
+import { StyleSheet, Text, View, KeyboardAvoidingView,Keyboard,Image,Animated,TouchableOpacity,Vibration, TouchableWithoutFeedback,Platform,FlatList, Pressable, TextInput, Dimensions } from 'react-native'
 import React, { useEffect, useState, useCallback,useRef,useMemo } from 'react'
 import appData from '../AppList.json';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import CircularProgress from 'react-native-circular-progress-indicator';
 import Entypo from '@expo/vector-icons/Entypo';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import BottomSheet, { BottomSheetFlatList,BottomSheetView,BottomSheetScrollView } from "@gorhom/bottom-sheet";
+import BottomSheet, { BottomSheetFlatList,BottomSheetView,BottomSheetModal,BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 
-const ScreenTime = ({hours,minutes,displayScreenTime,setDisplayScreenTime}) => {
+const ScreenTime = ({hours,minutes,displayScreenTime,setDisplayScreenTime,setIsNavbarVisible}) => {
     const screenTimeText = `${hours}h ${minutes}m`
     const totalMinutes = ((hours*60) + minutes);
     const bottomSheetRef = useRef(null);
@@ -22,8 +22,11 @@ const ScreenTime = ({hours,minutes,displayScreenTime,setDisplayScreenTime}) => {
     const [innerCircleColour,setInnerCircleColour] = useState("");
     const [expanded, setExpanded] = useState(false);
 
-    const [inputHours,setInputHours] = useState(0);
-    const [inputMinutes,setInputMinutes] = useState(0);
+    const [selectedApps, setSelectedApps] = useState([]);
+    const [showError, setShowError] = useState(false);
+    const errorOpacity = useRef(new Animated.Value(0)).current;
+
+    const [inputValues, setInputValues] = useState({}); 
 
     const [searchQuery, setSearchQuery] = useState('');
     const [filteredApps, setFilteredApps] = useState(appData);
@@ -55,6 +58,11 @@ const ScreenTime = ({hours,minutes,displayScreenTime,setDisplayScreenTime}) => {
             innerCircleColour: '#B20000',
         },
     ]
+
+    const combinedData = [
+        ...selectedApps,
+        ...filteredApps.filter((app) => !selectedApps.some((selected) => selected.id === app.id)),
+    ];
 
     useEffect(()=>{
         let h = Number(hours);
@@ -100,32 +108,139 @@ const ScreenTime = ({hours,minutes,displayScreenTime,setDisplayScreenTime}) => {
     // callbacks
     const handleSheetChanges = useCallback((index) => {
         // console.log("handleSheetChange", index);
+        if(index==-1) setIsNavbarVisible(true);
     }, []);
     const handleSnapPress = useCallback((index) => {
         bottomSheetRef.current?.snapToIndex(index);
     }, []);
 
-    const AppItem = React.memo(({ item }) => (
-        <View style={styles.appItem}>
-            <View style={{display: 'flex',flexDirection: 'row',alignItems: 'center',maxWidth: '70%'}}>
-                <Image
-                    source={{ uri: item.appIconUrl }}
-                    style={{ width: 35, height: 35, marginRight: 15, borderRadius: 10 }}
-                    resizeMode="contain"
-                />
-                <Text
-                    style={styles.appName}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                >
-                    {item.appName}
-                </Text>
-            </View>
-            <AntDesign name="pluscircle" size={24} color="#404040" />
-        </View>
-    ));
+    const handleSelect = (app) => {
+        setSelectedApps((prevSelected) => {
+            if (prevSelected.find((selected) => selected.id === app.id)) {
+                // Deselect the app
+                return prevSelected.filter((selected) => selected.id !== app.id);
+            } else if (prevSelected.length < 3) {
+                // Select the app if the limit isn't reached
+                return [app, ...prevSelected];
+            } else {
+                // Trigger error if trying to select more than 3
+                triggerError();
+                return prevSelected;
+            }
+        });
+    };
 
-    const renderItem = ({ item }) => <AppItem item={item} />;
+    const triggerError = () => {
+        Vibration.vibrate(300); // Trigger vibration
+        Animated.sequence([
+            Animated.timing(errorOpacity, {
+                toValue: 1,
+                duration: 800,
+                useNativeDriver: true,
+            }),
+            Animated.timing(errorOpacity, {
+                toValue: 0,
+                duration: 800,
+                useNativeDriver: true,
+            }),
+        ]).start();
+    };
+
+    const handleInputChange = (id, field, value) => {
+        setInputValues((prevValues) => ({
+            ...prevValues,
+            [id]: {
+                ...prevValues[id],
+                [field]: value,
+            },
+        }));
+    };
+
+    const AppItem = React.memo(({ item, onPress, isSelected }) => {
+        const animatedScale = new Animated.Value(1);
+    
+        // Animation when the app is tapped
+        const animateSelection = () => {
+            Animated.sequence([
+                Animated.timing(animatedScale, {
+                    toValue: 1.1,
+                    duration: 150,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(animatedScale, {
+                    toValue: 1,
+                    duration: 150,
+                    useNativeDriver: true,
+                }),
+            ]).start();
+        };
+    
+        const handlePress = () => {
+            animateSelection();
+            onPress(item);
+        };
+    
+        return (
+            <TouchableOpacity onPress={handlePress}>
+                <Animated.View style={[styles.appItem, { transform: [{ scale: animatedScale }], backgroundColor: isSelected ? '#f6f6f7' : '#fff' }]}>
+                    <View
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            maxWidth: '70%',
+                        }}
+                    >
+                        <Image
+                            source={{ uri: item.appIconUrl }}
+                            style={{ width: 35, height: 35, marginRight: 15, borderRadius: 10 }}
+                            resizeMode="contain"
+                        />
+                        <Text
+                            style={{
+                                fontSize: 14,
+                                fontFamily: 'MontserratMedium',}}
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                        >
+                            {item.appName}
+                        </Text>
+                    </View>
+                    <AntDesign
+                        name={isSelected ? "closecircle" : "pluscircle"}
+                        size={24}
+                        color={isSelected ? "#000" : "#404040"}
+                    />
+                </Animated.View>
+            </TouchableOpacity>
+        );
+    });
+
+    const renderItem = ({ item }) => {
+        const isSelected = selectedApps.some((selected) => selected.id === item.id);
+        const isSelectionDisabled = selectedApps.length >= 3 && !isSelected;
+        return (
+            <AppItem
+                item={item}
+                onPress={handleSelect}
+                isSelected={isSelected}
+                disabled={isSelectionDisabled}
+            />
+        );
+    };
+
+    // check if hours and minutes field is not empty for an record
+    const isValidAppTime = () => {
+        const entries = Object.values(inputValues);
+
+        if (entries.length < 1) {
+            return false;
+        }
+
+        return entries.every(record => 
+            record.hours?.trim() !== '' && record.minutes?.trim() !== ''
+        );
+    };
 
     return (
         <KeyboardAvoidingView
@@ -162,7 +277,10 @@ const ScreenTime = ({hours,minutes,displayScreenTime,setDisplayScreenTime}) => {
                                         showProgressValue={false}
                                         titleStyle={{fontFamily: 'MontserratMedium'}}
                                     />
-                                    <Pressable onPress={() => handleSnapPress(2)} style={styles.logTimePressable}>
+                                    <Pressable onPress={() => {
+                                        handleSnapPress(2)
+                                        setIsNavbarVisible(false)
+                                    }} style={styles.logTimePressable}>
                                         <Text style={{fontFamily: 'MontserratMedium',}}>Log App Time</Text>
                                         <Entypo name="plus" size={25} color="black" />
                                     </Pressable>
@@ -190,33 +308,132 @@ const ScreenTime = ({hours,minutes,displayScreenTime,setDisplayScreenTime}) => {
                                             </Text>
                                         </View>
                                         <View style={{ display: 'flex', flexDirection: 'column' }}>
-                                            <Pressable
-                                                style={styles.selectAppBox}
-                                                onPress={() => {
-                                                    setExpanded(true)
-                                                }}
-                                            >
-                                                <Text style={styles.inputText}>Select App</Text>
-                                                <Entypo name="plus" size={25} color="black" />
-                                            </Pressable>
+                                            {
+                                                selectedApps.length>0
+                                                ?
+                                                <Pressable
+                                                    style={styles.selectAppBox}
+                                                    onPress={() => {
+                                                        setExpanded(true)
+                                                    }}
+                                                >
+                                                    <Text style={styles.inputText}>Edit Apps</Text>
+                                                    <AntDesign name="edit" size={25} color="black" />
+                                                </Pressable>
+                                                :
+                                                <Pressable
+                                                    style={styles.selectAppBox}
+                                                    onPress={() => {
+                                                        setExpanded(true)
+                                                    }}
+                                                >
+                                                    <Text style={styles.inputText}>Select Apps</Text>
+                                                    <Entypo name="plus" size={25} color="black" />
+                                                </Pressable>
+                                            }
                                         </View>
-                                        <Pressable
-                                            style={[
-                                                styles.logBtn,
-                                                expanded
-                                                    ? {}
-                                                    : { backgroundColor: '#f5f4f4' },
-                                            ]}
-                                        >
-                                            <Text
-                                                style={{
-                                                    fontFamily: 'MontserratSemiBold',
-                                                    color: expanded ? '#fff' : '#CFCFCF',
-                                                }}
+                                        {
+                                            selectedApps
+                                            ?
+                                            selectedApps.map(app => {
+                                                const appValues = inputValues[app.id] || { hours: '', minutes: '' };
+                                                return(
+                                                    <View
+                                                        style={{
+                                                            display: 'flex',
+                                                            flexDirection: 'column',
+                                                            width: '90%',
+                                                            borderWidth: 1,
+                                                            borderColor: '#f5f4f4',
+                                                            padding: 15,
+                                                            borderRadius: 10
+                                                        }}
+                                                        key={app.id}
+                                                    >
+                                                        <View style={{display: 'flex',flexDirection: 'row',alignItems: 'center'}}>
+                                                            <Image
+                                                                source={{ uri: app.appIconUrl }}
+                                                                style={{ width: 40, height: 40, marginRight: 15, borderRadius: 10 }}
+                                                                resizeMode="contain"
+                                                            />
+                                                            <Text
+                                                                style={{
+                                                                    fontSize: 14,
+                                                                    fontFamily: 'MontserratMedium',}}
+                                                                numberOfLines={1}
+                                                                ellipsizeMode="tail"
+                                                            >
+                                                                {app.appName}
+                                                            </Text>
+                                                        </View>
+                                                        <View style={{display: 'flex',flexDirection: 'row',justifyContent: 'space-around',marginTop: 20,}}>
+                                                            <View style={styles.inputRow}>
+                                                                <TextInput
+                                                                    value={appValues.hours}
+                                                                    placeholder="00"
+                                                                    onChangeText={(value) => handleInputChange(app.id, 'hours', value)}
+                                                                    style={styles.input}
+                                                                    keyboardType="numeric"
+                                                                    placeholderTextColor="#DDD"
+                                                                />
+                                                                <Text style={styles.inputText}>Hours</Text>
+                                                            </View>
+                                                            <View style={styles.inputRow}>
+                                                                <TextInput
+                                                                    value={appValues.minutes}
+                                                                    placeholder="00"
+                                                                    onChangeText={(value) => handleInputChange(app.id, 'minutes', value)}
+                                                                    style={styles.input}
+                                                                    keyboardType="numeric"
+                                                                    placeholderTextColor="#DDD"
+                                                                />
+                                                                <Text style={styles.inputText}>Minutes</Text>
+                                                            </View>
+                                                        </View>
+                                                    </View>
+                                                )
+                                            })
+                                            :
+                                            <View></View>
+                                        }
+                                        {
+                                            isValidAppTime()
+                                            ?
+                                            <Pressable
+                                                style={[
+                                                    styles.logBtn,
+                                                    { backgroundColor: '#000' },
+                                                ]}
                                             >
-                                                Log
-                                            </Text>
-                                        </Pressable>
+                                                <Text
+                                                    style={{
+                                                        fontFamily: 'MontserratSemiBold',
+                                                        color: '#fff',
+                                                    }}
+                                                >
+                                                    Log
+                                                </Text>
+                                            </Pressable>
+                                            :
+                                            <Pressable
+                                                style={[
+                                                    styles.logBtn,
+                                                    expanded
+                                                        ? {}
+                                                        : { backgroundColor: '#f5f4f4' },
+                                                ]}
+                                            >
+                                                <Text
+                                                    style={{
+                                                        fontFamily: 'MontserratSemiBold',
+                                                        color: expanded ? '#fff' : '#CFCFCF',
+                                                    }}
+                                                >
+                                                    Log
+                                                </Text>
+                                            </Pressable>
+                                        }
+                                        
                                     </BottomSheetView>
                                     :
                                     <BottomSheetView style={styles.bottomSheetContainer}>
@@ -250,8 +467,22 @@ const ScreenTime = ({hours,minutes,displayScreenTime,setDisplayScreenTime}) => {
                                                 />
                                             </View>
                                         </View>
+                                        {selectedApps.length === 3 && (
+                                            <View style={styles.tickContainer}>
+                                                <AntDesign name="checkcircle" size={24} color="black" />
+                                                <Text style={styles.tickText}>Selection Complete!</Text>
+                                            </View>
+                                        )}
+                                        <Animated.Text
+                                            style={[
+                                                styles.errorText,
+                                                { opacity: errorOpacity },
+                                            ]}
+                                        >
+                                            You can select up to 3 apps only.
+                                        </Animated.Text>
                                         <BottomSheetFlatList
-                                            data={filteredApps}
+                                            data={combinedData}
                                             keyExtractor={(i) => i.id}
                                             renderItem={renderItem}
                                             keyboardShouldPersistTaps="handled"
@@ -307,7 +538,7 @@ const styles = StyleSheet.create({
         flexDirection: 'column',
         justifyContent: 'space-between',
         alignItems: 'center',
-        position: 'relative'
+        position: 'relative',
     },
     progressCircleContainer: {
         display: 'flex',
@@ -339,15 +570,15 @@ const styles = StyleSheet.create({
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center'
+        justifyContent: 'center',
     },
     selectAppBox: {
         marginTop: 30,
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
-        width: '80%',
-        padding: 20,
+        width: '90%',
+        padding: 15,
         justifyContent: 'space-between',
         borderWidth: 1,
         borderColor: '#f5f4f4',
@@ -358,8 +589,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-around',
-        marginTop: 20,
-        width: '80%'
+        
     },
     inputRowComponent: {
         display: 'flex',
@@ -367,24 +597,23 @@ const styles = StyleSheet.create({
         alignItems: 'center'
     },  
     input: {
-        height: 50,
-        width: 50,
+        height: 35,
+        width: 35,
         backgroundColor: '#F5F4F4',
         textAlign: 'center',
-        fontSize: 20,
-        fontFamily: 'MontserratMedium',
+        fontFamily: 'MontserratRegular',
         color: '#000',
         borderRadius: 5,
         marginRight: 20,
     },
     inputText: {
-        fontSize: 15,
+        fontSize: 13,
         fontFamily: 'MontserratMedium',
         color: '#404040',
     },
     logBtn: {
         backgroundColor: '#000',
-        width: '80%',
+        width: '90%',
         padding: 20,
         borderRadius: 50,
         justifyContent: 'center',
@@ -425,8 +654,20 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         justifyContent: 'space-between'
     },
-    appName: {
-        fontSize: 14,
-        fontFamily: 'MontserratMedium',
+    errorText: {
+        color: '#ff4040',
+        textAlign: 'center',
+        marginVertical: 10,
+        fontSize: 16,
+    },
+    tickContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    tickText: {
+        fontSize: 16,
+        color: '#4CAF50',
+        marginLeft: 10,
     },
 })

@@ -16,7 +16,7 @@ import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import ScreenTime from '../components/ScreenTime';
 
-const LogTime = () => {
+const LogTime = ({setIsNavbarVisible}) => {
   const [hours, setHours] = useState('');
   const [minutes, setMinutes] = useState('');
   const [displayScreenTime,setDisplayScreenTime] = useState(false);
@@ -76,7 +76,7 @@ const LogTime = () => {
 
   if(displayScreenTime){
     return (
-      <ScreenTime hours={hours} minutes={minutes} displayScreenTime={displayScreenTime} setDisplayScreenTime={setDisplayScreenTime}/>
+      <ScreenTime hours={hours} minutes={minutes} displayScreenTime={displayScreenTime} setDisplayScreenTime={setDisplayScreenTime} setIsNavbarVisible={setIsNavbarVisible}/>
     );
   }
   else{
@@ -158,11 +158,11 @@ export default LogTime;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f4f4',
+    // backgroundColor: '#f5f4f4',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
-    position: 'relative'
+    position: 'relative',
   },
   innerContainer: {
     flex: 1,

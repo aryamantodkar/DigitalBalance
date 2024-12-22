@@ -4,7 +4,11 @@ import Entypo from '@expo/vector-icons/Entypo';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-const CustomTabBar = ({ state, descriptors, navigation }) => {
+const CustomTabBar = ({ state, descriptors, navigation, isNavbarVisible }) => {
+    if (!isNavbarVisible) {
+        return null; // Return null to hide the navbar
+    }
+
     const circleSizeValue = 45; // Fixed size for the circle
     const [circlePosition] = useState(new Animated.Value(-circleSizeValue)); // Start offscreen
     const tabPositions = useRef([]); // Store tab positions dynamically
