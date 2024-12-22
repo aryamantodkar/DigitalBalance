@@ -1,7 +1,7 @@
-import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Navbar from './components/Navbar';
 import { useFonts } from 'expo-font';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -17,7 +17,7 @@ export default function App() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={['right', 'top', 'left']} style={styles.container}>
       <Navbar/>
     </SafeAreaView>
   );
@@ -30,7 +30,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    padding: 20,
-    paddingTop: 50
+    // padding: 20,
+    // paddingTop: 50
   },
 });

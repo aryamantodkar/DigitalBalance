@@ -107,6 +107,8 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         borderRadius: 50,
         alignSelf: 'center',
+        position: 'absolute',
+        bottom: 30
     },
     circle: {
         position: 'absolute',

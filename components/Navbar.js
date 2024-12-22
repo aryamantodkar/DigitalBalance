@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View,SafeAreaView } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
+import {SafeAreaView} from 'react-native-safe-area-context';
 import React, { useState } from 'react'
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -13,7 +14,7 @@ const Navbar = () => {
     const [isNavbarVisible, setIsNavbarVisible] = useState(true);
 
     return (
-        <SafeAreaView style={{width: '100%',flex:1}}> 
+        <SafeAreaView edges={['right', 'top', 'left']} style={{width: '100%',flex:1}}> 
             <NavigationContainer>
                 <Tab.Navigator
                     tabBar={(props) => <CustomTabBar {...props} isNavbarVisible={isNavbarVisible} />}

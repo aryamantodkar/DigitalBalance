@@ -158,7 +158,7 @@ export default LogTime;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // backgroundColor: '#f5f4f4',
+    backgroundColor: '#f5f4f4',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,

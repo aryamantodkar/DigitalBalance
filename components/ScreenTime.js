@@ -7,6 +7,7 @@ import Entypo from '@expo/vector-icons/Entypo';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import BottomSheet, { BottomSheetFlatList,BottomSheetView,BottomSheetModal,BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const ScreenTime = ({hours,minutes,displayScreenTime,setDisplayScreenTime,setIsNavbarVisible}) => {
     const screenTimeText = `${hours}h ${minutes}m`
@@ -14,6 +15,7 @@ const ScreenTime = ({hours,minutes,displayScreenTime,setDisplayScreenTime,setIsN
     const bottomSheetRef = useRef(null);
     const screenHeight = Dimensions.get('window').height;
 
+    const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
     const snapPoints = useMemo(() => [screenHeight*0.4, screenHeight*0.6, screenHeight*0.9], []);
 
     const [value,setValue] = useState(0);
@@ -108,7 +110,10 @@ const ScreenTime = ({hours,minutes,displayScreenTime,setDisplayScreenTime,setIsN
     // callbacks
     const handleSheetChanges = useCallback((index) => {
         // console.log("handleSheetChange", index);
-        if(index==-1) setIsNavbarVisible(true);
+        if(index==-1){
+            setIsNavbarVisible(true);
+            setIsBottomSheetOpen(false);
+        }
     }, []);
     const handleSnapPress = useCallback((index) => {
         bottomSheetRef.current?.snapToIndex(index);
@@ -247,258 +252,261 @@ const ScreenTime = ({hours,minutes,displayScreenTime,setDisplayScreenTime,setIsN
             style={styles.container}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             >
-            <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
-                {
-                    circleTextColour!=undefined && outerCircleColour!=undefined && innerCircleColour!=undefined
-                    ?
-                    <View style={styles.screenTimeContainer}>
-                        <GestureHandlerRootView style={{ flex: 1,height: '100%', width: '100%'}}>
-                            <View style={{padding: 20}}>
-                                <View style={styles.header}>
-                                    <Pressable onPress={() => {
-                                        setDisplayScreenTime(false)
-                                    }}>
-                                        <AntDesign name="arrowleft" size={24} color="black" />
-                                    </Pressable>
-                                    <Text style={styles.screenTimeText}>Screen Time</Text>
+            <SafeAreaView edges={['right', 'top', 'left']} style={{width: '100%',flex:1,height: '100%'}}>
+                <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
+                    {
+                        circleTextColour!=undefined && outerCircleColour!=undefined && innerCircleColour!=undefined
+                        ?
+                        <View style={[styles.screenTimeContainer,{position: isBottomSheetOpen ? 'absolute' : 'relative', bottom: isBottomSheetOpen ? -10 : 0}]}>
+                            <GestureHandlerRootView style={{ flex: 1,height: '100%', width: '100%'}}>
+                                <View style={{padding: 20}}>
+                                    <View style={styles.header}>
+                                        <Pressable onPress={() => {
+                                            setDisplayScreenTime(false)
+                                        }}>
+                                            <AntDesign name="arrowleft" size={24} color="black" />
+                                        </Pressable>
+                                        <Text style={styles.screenTimeText}>Screen Time</Text>
+                                    </View>
+                                    <View style={styles.progressCircleContainer}>
+                                        <CircularProgress
+                                            value={value}
+                                            title={screenTimeText}
+                                            radius={120}
+                                            titleColor={circleTextColour}
+                                            titleFontSize={25}
+                                            activeStrokeColor={innerCircleColour}
+                                            inActiveStrokeColor={outerCircleColour}
+                                            inActiveStrokeOpacity={0.5}
+                                            inActiveStrokeWidth={40}
+                                            activeStrokeWidth={20}
+                                            showProgressValue={false}
+                                            titleStyle={{fontFamily: 'MontserratMedium'}}
+                                        />
+                                        <Pressable onPress={() => {
+                                            handleSnapPress(2)
+                                            setIsNavbarVisible(false)
+                                            setIsBottomSheetOpen(true)
+                                        }} style={styles.logTimePressable}>
+                                            <Text style={{fontFamily: 'MontserratMedium',}}>Log App Time</Text>
+                                            <Entypo name="plus" size={25} color="black" />
+                                        </Pressable>
+                                    </View>
                                 </View>
-                                <View style={styles.progressCircleContainer}>
-                                    <CircularProgress
-                                        value={value}
-                                        title={screenTimeText}
-                                        radius={120}
-                                        titleColor={circleTextColour}
-                                        titleFontSize={25}
-                                        activeStrokeColor={innerCircleColour}
-                                        inActiveStrokeColor={outerCircleColour}
-                                        inActiveStrokeOpacity={0.5}
-                                        inActiveStrokeWidth={40}
-                                        activeStrokeWidth={20}
-                                        showProgressValue={false}
-                                        titleStyle={{fontFamily: 'MontserratMedium'}}
-                                    />
-                                    <Pressable onPress={() => {
-                                        handleSnapPress(2)
-                                        setIsNavbarVisible(false)
-                                    }} style={styles.logTimePressable}>
-                                        <Text style={{fontFamily: 'MontserratMedium',}}>Log App Time</Text>
-                                        <Entypo name="plus" size={25} color="black" />
-                                    </Pressable>
-                                </View>
-                            </View>
-                        
-                            <BottomSheet
-                                ref={bottomSheetRef}
-                                onChange={handleSheetChanges}
-                                snapPoints={snapPoints}
-                                style={{width: '100%'}}
-                                index={-1}
-                                enableOverDrag={false} 
-                                simultaneousHandlers={bottomSheetRef} 
-                                enablePanDownToClose={true}
-                            >
-                                {
-                                    !expanded
-                                    ?
-                                    <BottomSheetView style={styles.bottomSheetContainer}>
-                                        <View style={styles.bottomSheetHeader}>
-                                            <FontAwesome6 name="hourglass-empty" size={30} color="black" />
-                                            <Text style={{ fontFamily: 'MontserratSemiBold', fontSize: 20, marginLeft: 20}}>
-                                                App Time
-                                            </Text>
-                                        </View>
-                                        <View style={{ display: 'flex', flexDirection: 'column' }}>
+                            
+                                <BottomSheet
+                                    ref={bottomSheetRef}
+                                    onChange={handleSheetChanges}
+                                    snapPoints={snapPoints}
+                                    style={{width: '100%'}}
+                                    index={-1}
+                                    enableOverDrag={false} 
+                                    simultaneousHandlers={bottomSheetRef} 
+                                    enablePanDownToClose={true}
+                                >
+                                    {
+                                        !expanded
+                                        ?
+                                        <BottomSheetView style={styles.bottomSheetContainer}>
+                                            <View style={styles.bottomSheetHeader}>
+                                                <FontAwesome6 name="hourglass-empty" size={30} color="black" />
+                                                <Text style={{ fontFamily: 'MontserratSemiBold', fontSize: 20, marginLeft: 20}}>
+                                                    App Time
+                                                </Text>
+                                            </View>
+                                            <View style={{ display: 'flex', flexDirection: 'column' }}>
+                                                {
+                                                    selectedApps.length>0
+                                                    ?
+                                                    <Pressable
+                                                        style={styles.selectAppBox}
+                                                        onPress={() => {
+                                                            setExpanded(true)
+                                                        }}
+                                                    >
+                                                        <Text style={styles.inputText}>Edit Apps</Text>
+                                                        <AntDesign name="edit" size={25} color="black" />
+                                                    </Pressable>
+                                                    :
+                                                    <Pressable
+                                                        style={styles.selectAppBox}
+                                                        onPress={() => {
+                                                            setExpanded(true)
+                                                        }}
+                                                    >
+                                                        <Text style={styles.inputText}>Select Apps</Text>
+                                                        <Entypo name="plus" size={25} color="black" />
+                                                    </Pressable>
+                                                }
+                                            </View>
                                             {
-                                                selectedApps.length>0
+                                                selectedApps
+                                                ?
+                                                selectedApps.map(app => {
+                                                    const appValues = inputValues[app.id] || { hours: '', minutes: '' };
+                                                    return(
+                                                        <View
+                                                            style={{
+                                                                display: 'flex',
+                                                                flexDirection: 'column',
+                                                                width: '90%',
+                                                                borderWidth: 1,
+                                                                borderColor: '#f5f4f4',
+                                                                padding: 15,
+                                                                borderRadius: 10
+                                                            }}
+                                                            key={app.id}
+                                                        >
+                                                            <View style={{display: 'flex',flexDirection: 'row',alignItems: 'center'}}>
+                                                                <Image
+                                                                    source={{ uri: app.appIconUrl }}
+                                                                    style={{ width: 40, height: 40, marginRight: 15, borderRadius: 10 }}
+                                                                    resizeMode="contain"
+                                                                />
+                                                                <Text
+                                                                    style={{
+                                                                        fontSize: 14,
+                                                                        fontFamily: 'MontserratMedium',}}
+                                                                    numberOfLines={1}
+                                                                    ellipsizeMode="tail"
+                                                                >
+                                                                    {app.appName}
+                                                                </Text>
+                                                            </View>
+                                                            <View style={{display: 'flex',flexDirection: 'row',justifyContent: 'space-around',marginTop: 20,}}>
+                                                                <View style={styles.inputRow}>
+                                                                    <TextInput
+                                                                        value={appValues.hours}
+                                                                        placeholder="00"
+                                                                        onChangeText={(value) => handleInputChange(app.id, 'hours', value)}
+                                                                        style={styles.input}
+                                                                        keyboardType="numeric"
+                                                                        placeholderTextColor="#DDD"
+                                                                    />
+                                                                    <Text style={styles.inputText}>Hours</Text>
+                                                                </View>
+                                                                <View style={styles.inputRow}>
+                                                                    <TextInput
+                                                                        value={appValues.minutes}
+                                                                        placeholder="00"
+                                                                        onChangeText={(value) => handleInputChange(app.id, 'minutes', value)}
+                                                                        style={styles.input}
+                                                                        keyboardType="numeric"
+                                                                        placeholderTextColor="#DDD"
+                                                                    />
+                                                                    <Text style={styles.inputText}>Minutes</Text>
+                                                                </View>
+                                                            </View>
+                                                        </View>
+                                                    )
+                                                })
+                                                :
+                                                <View></View>
+                                            }
+                                            {
+                                                isValidAppTime()
                                                 ?
                                                 <Pressable
-                                                    style={styles.selectAppBox}
-                                                    onPress={() => {
-                                                        setExpanded(true)
-                                                    }}
+                                                    style={[
+                                                        styles.logBtn,
+                                                        { backgroundColor: '#000' },
+                                                    ]}
                                                 >
-                                                    <Text style={styles.inputText}>Edit Apps</Text>
-                                                    <AntDesign name="edit" size={25} color="black" />
+                                                    <Text
+                                                        style={{
+                                                            fontFamily: 'MontserratSemiBold',
+                                                            color: '#fff',
+                                                        }}
+                                                    >
+                                                        Log
+                                                    </Text>
                                                 </Pressable>
                                                 :
                                                 <Pressable
-                                                    style={styles.selectAppBox}
-                                                    onPress={() => {
-                                                        setExpanded(true)
-                                                    }}
+                                                    style={[
+                                                        styles.logBtn,
+                                                        expanded
+                                                            ? {}
+                                                            : { backgroundColor: '#f5f4f4' },
+                                                    ]}
                                                 >
-                                                    <Text style={styles.inputText}>Select Apps</Text>
-                                                    <Entypo name="plus" size={25} color="black" />
+                                                    <Text
+                                                        style={{
+                                                            fontFamily: 'MontserratSemiBold',
+                                                            color: expanded ? '#fff' : '#CFCFCF',
+                                                        }}
+                                                    >
+                                                        Log
+                                                    </Text>
                                                 </Pressable>
                                             }
-                                        </View>
-                                        {
-                                            selectedApps
-                                            ?
-                                            selectedApps.map(app => {
-                                                const appValues = inputValues[app.id] || { hours: '', minutes: '' };
-                                                return(
-                                                    <View
+                                            
+                                        </BottomSheetView>
+                                        :
+                                        <BottomSheetView style={styles.bottomSheetContainer}>
+                                            <View style={styles.bottomSheetSearchHeader}>
+                                                <Pressable
+                                                    style={styles.collapseBottomSheet}
+                                                    onPress={() => {
+                                                        setExpanded(false);
+                                                    }}
+                                                >
+                                                    <AntDesign name="arrowleft" size={25} color="black" />
+                                                </Pressable>
+                                                <View style={{ position: 'relative', width: '80%' }}>
+                                                    <TextInput
+                                                        style={styles.searchInput}
+                                                        placeholder="Which app are you looking for?"
+                                                        placeholderTextColor="#636363"
+                                                        value={searchQuery}
+                                                        onChangeText={handleSearch}
+                                                    />
+                                                    <AntDesign
                                                         style={{
-                                                            display: 'flex',
-                                                            flexDirection: 'column',
-                                                            width: '90%',
-                                                            borderWidth: 1,
-                                                            borderColor: '#f5f4f4',
-                                                            padding: 15,
-                                                            borderRadius: 10
+                                                            position: 'absolute',
+                                                            left: 15,
+                                                            top: '50%',
+                                                            transform: [{ translateY: -12 }],
                                                         }}
-                                                        key={app.id}
-                                                    >
-                                                        <View style={{display: 'flex',flexDirection: 'row',alignItems: 'center'}}>
-                                                            <Image
-                                                                source={{ uri: app.appIconUrl }}
-                                                                style={{ width: 40, height: 40, marginRight: 15, borderRadius: 10 }}
-                                                                resizeMode="contain"
-                                                            />
-                                                            <Text
-                                                                style={{
-                                                                    fontSize: 14,
-                                                                    fontFamily: 'MontserratMedium',}}
-                                                                numberOfLines={1}
-                                                                ellipsizeMode="tail"
-                                                            >
-                                                                {app.appName}
-                                                            </Text>
-                                                        </View>
-                                                        <View style={{display: 'flex',flexDirection: 'row',justifyContent: 'space-around',marginTop: 20,}}>
-                                                            <View style={styles.inputRow}>
-                                                                <TextInput
-                                                                    value={appValues.hours}
-                                                                    placeholder="00"
-                                                                    onChangeText={(value) => handleInputChange(app.id, 'hours', value)}
-                                                                    style={styles.input}
-                                                                    keyboardType="numeric"
-                                                                    placeholderTextColor="#DDD"
-                                                                />
-                                                                <Text style={styles.inputText}>Hours</Text>
-                                                            </View>
-                                                            <View style={styles.inputRow}>
-                                                                <TextInput
-                                                                    value={appValues.minutes}
-                                                                    placeholder="00"
-                                                                    onChangeText={(value) => handleInputChange(app.id, 'minutes', value)}
-                                                                    style={styles.input}
-                                                                    keyboardType="numeric"
-                                                                    placeholderTextColor="#DDD"
-                                                                />
-                                                                <Text style={styles.inputText}>Minutes</Text>
-                                                            </View>
-                                                        </View>
-                                                    </View>
-                                                )
-                                            })
-                                            :
-                                            <View></View>
-                                        }
-                                        {
-                                            isValidAppTime()
-                                            ?
-                                            <Pressable
+                                                        name="search1"
+                                                        size={20}
+                                                        color="#636363"
+                                                    />
+                                                </View>
+                                            </View>
+                                            {selectedApps.length === 3 && (
+                                                <View style={styles.tickContainer}>
+                                                    <AntDesign name="checkcircle" size={24} color="black" />
+                                                    <Text style={styles.tickText}>Selection Complete!</Text>
+                                                </View>
+                                            )}
+                                            <Animated.Text
                                                 style={[
-                                                    styles.logBtn,
-                                                    { backgroundColor: '#000' },
+                                                    styles.errorText,
+                                                    { opacity: errorOpacity },
                                                 ]}
                                             >
-                                                <Text
-                                                    style={{
-                                                        fontFamily: 'MontserratSemiBold',
-                                                        color: '#fff',
-                                                    }}
-                                                >
-                                                    Log
-                                                </Text>
-                                            </Pressable>
-                                            :
-                                            <Pressable
-                                                style={[
-                                                    styles.logBtn,
-                                                    expanded
-                                                        ? {}
-                                                        : { backgroundColor: '#f5f4f4' },
-                                                ]}
-                                            >
-                                                <Text
-                                                    style={{
-                                                        fontFamily: 'MontserratSemiBold',
-                                                        color: expanded ? '#fff' : '#CFCFCF',
-                                                    }}
-                                                >
-                                                    Log
-                                                </Text>
-                                            </Pressable>
-                                        }
-                                        
-                                    </BottomSheetView>
-                                    :
-                                    <BottomSheetView style={styles.bottomSheetContainer}>
-                                        <View style={styles.bottomSheetSearchHeader}>
-                                            <Pressable
-                                                style={styles.collapseBottomSheet}
-                                                onPress={() => {
-                                                    setExpanded(false);
-                                                }}
-                                            >
-                                                <AntDesign name="arrowleft" size={25} color="black" />
-                                            </Pressable>
-                                            <View style={{ position: 'relative', width: '80%' }}>
-                                                <TextInput
-                                                    style={styles.searchInput}
-                                                    placeholder="Which app are you looking for?"
-                                                    placeholderTextColor="#636363"
-                                                    value={searchQuery}
-                                                    onChangeText={handleSearch}
-                                                />
-                                                <AntDesign
-                                                    style={{
-                                                        position: 'absolute',
-                                                        left: 15,
-                                                        top: '50%',
-                                                        transform: [{ translateY: -12 }],
-                                                    }}
-                                                    name="search1"
-                                                    size={20}
-                                                    color="#636363"
-                                                />
-                                            </View>
-                                        </View>
-                                        {selectedApps.length === 3 && (
-                                            <View style={styles.tickContainer}>
-                                                <AntDesign name="checkcircle" size={24} color="black" />
-                                                <Text style={styles.tickText}>Selection Complete!</Text>
-                                            </View>
-                                        )}
-                                        <Animated.Text
-                                            style={[
-                                                styles.errorText,
-                                                { opacity: errorOpacity },
-                                            ]}
-                                        >
-                                            You can select up to 3 apps only.
-                                        </Animated.Text>
-                                        <BottomSheetFlatList
-                                            data={combinedData}
-                                            keyExtractor={(i) => i.id}
-                                            renderItem={renderItem}
-                                            keyboardShouldPersistTaps="handled"
-                                            nestedScrollEnabled={true}
-                                            style={{width: '100%'}}
-                                        />
-                                    </BottomSheetView>
-                                }
-                            </BottomSheet>
-                        </GestureHandlerRootView>
+                                                You can select up to 3 apps only.
+                                            </Animated.Text>
+                                            <BottomSheetFlatList
+                                                data={combinedData}
+                                                keyExtractor={(i) => i.id}
+                                                renderItem={renderItem}
+                                                keyboardShouldPersistTaps="handled"
+                                                nestedScrollEnabled={true}
+                                                style={{width: '100%'}}
+                                            />
+                                        </BottomSheetView>
+                                    }
+                                </BottomSheet>
+                            </GestureHandlerRootView>
 
-                    </View>
-                    :
-                    <View></View>
-                }
-            </TouchableWithoutFeedback>
+                        </View>
+                        :
+                        <View></View>
+                    }
+                </TouchableWithoutFeedback>
+            </SafeAreaView>
         </KeyboardAvoidingView>
     )
 }
@@ -542,10 +550,10 @@ const styles = StyleSheet.create({
     },
     progressCircleContainer: {
         display: 'flex',
-        height: '100%',
+        height: '90%',
         justifyContent: 'space-around',
         width: '100%',
-        alignItems: 'center'
+        alignItems: 'center',
     },
     logTimePressable: {
         backgroundColor: '#fff',
