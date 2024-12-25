@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -15,11 +15,17 @@ import { useFocusEffect } from '@react-navigation/native';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import ScreenTime from '../components/ScreenTime';
+import DateTimePicker from 'react-native-ui-datepicker';
+import dayjs from 'dayjs';
+import advancedFormat from 'dayjs/plugin/advancedFormat';
 
 const LogTime = ({setIsNavbarVisible}) => {
   const [hours, setHours] = useState('');
   const [minutes, setMinutes] = useState('');
   const [displayScreenTime,setDisplayScreenTime] = useState(false);
+  const [date, setDate] = useState(null);
+  const [showCalendar,setShowCalendar] = useState(false);
+  dayjs.extend(advancedFormat);
 
   const fadeAnim1 = useRef(new Animated.Value(0)).current;
   const fadeAnim2 = useRef(new Animated.Value(0)).current;
@@ -27,6 +33,14 @@ const LogTime = ({setIsNavbarVisible}) => {
   const fadeAnim4 = useRef(new Animated.Value(0)).current;
   const fadeAnim5 = useRef(new Animated.Value(0)).current;
   const inputContainerAnim = useRef(new Animated.Value(0)).current;
+
+  useFocusEffect(
+    React.useCallback(() => {
+      setDate(dayjs().format('YYYY-MM-DD'));
+      setHours('');
+      setMinutes('');
+    }, [])
+  );
 
   useFocusEffect(
     React.useCallback(() => {
@@ -76,7 +90,7 @@ const LogTime = ({setIsNavbarVisible}) => {
 
   if(displayScreenTime){
     return (
-      <ScreenTime hours={hours} minutes={minutes} displayScreenTime={displayScreenTime} setDisplayScreenTime={setDisplayScreenTime} setIsNavbarVisible={setIsNavbarVisible}/>
+      <ScreenTime hours={hours} minutes={minutes} date={date} displayScreenTime={displayScreenTime} setDisplayScreenTime={setDisplayScreenTime} setIsNavbarVisible={setIsNavbarVisible}/>
     );
   }
   else{
@@ -115,7 +129,9 @@ const LogTime = ({setIsNavbarVisible}) => {
                 Waste
               </Animated.Text>
               <Animated.Text style={[styles.subHeading, { opacity: fadeAnim5 }]}>
-                Today?
+                  {dayjs(date).isSame(dayjs(), 'day') || !date
+                  ? "Today?"
+                  : `on ${dayjs(date).format("Do MMMM")}?`}
               </Animated.Text>
             </Animated.View>
             <Animated.View style={[styles.inputContainer, { opacity: inputContainerAnim }]}>
@@ -141,11 +157,77 @@ const LogTime = ({setIsNavbarVisible}) => {
                 />
                 <Text style={styles.inputText}>Minutes</Text>
               </View>
-              <View style={styles.dateContainer}>
+              <Pressable onPress={() => {
+                setShowCalendar(true);
+              }} style={styles.dateContainer}>
                 <FontAwesome5 name="calendar-alt" size={24} color="#686868" />
                 <Text style={{marginLeft: 10,color: '#404040',fontFamily: 'MontserratLight',}}>Pick a different date?</Text>
-              </View>
+              </Pressable>
             </Animated.View>
+            {
+              showCalendar
+              ?
+              <View style={styles.datePickerContainer}>
+                <DateTimePicker
+                  mode='single'
+                  date={date}
+                  locale='en'
+                  displayFullDays
+                  onChange={(params) => {
+                    const selectedDate = new Date(params.date);
+
+                    const localDate = new Date(
+                      selectedDate.getTime() - selectedDate.getTimezoneOffset() * 60000
+                    );
+
+                    setDate(localDate);
+                  }}
+                  headerButtonColor='#0047FF'
+                  selectedItemColor='#0047FF'
+                  selectedTextStyle={{
+                    fontWeight: 'bold',
+                    color: '#fff',
+                  }}
+                  todayContainerStyle={{
+                    borderWidth: 1,
+                  }}
+                />
+                <View style={styles.footer}>
+                  <View style={styles.footerContainer}>
+                  <Pressable
+                      onPress={() => setDate(new Date())}
+                      accessibilityRole="button"
+                      accessibilityLabel="Today"
+                    >
+                      <View
+                        style={[
+                          styles.todayButton,
+                          { backgroundColor: '#0047FF' },
+                        ]}
+                      >
+                        <Text
+                          style={{ color: '#fff',fontFamily: 'MontserratBold' }}
+                        >
+                          Today
+                        </Text>
+                      </View>
+                    </Pressable>
+                    <Pressable style={{
+                      paddingHorizontal: 15,
+                      paddingVertical: 10,
+                      borderRadius: 5,
+                      backgroundColor: '#f5f5f4',
+                    }}
+                      onPress={() => setShowCalendar(false)}
+                    >
+                      <Text style={{fontFamily: 'MontserratSemiBold',color: '#404040'}}>Select</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+              :
+              null
+            }
           </View>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
@@ -168,7 +250,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     width: '100%',
-    paddingHorizontal: 20
+    paddingHorizontal: 20,
+    position: 'relative',
   },
   textContainer: {
     alignItems: 'flex-start',
@@ -212,7 +295,8 @@ const styles = StyleSheet.create({
     display: 'flex',
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 20
+    marginTop: 20,
+    paddingVertical: 15
   },
   submitContainer: {
     position: 'absolute',
@@ -220,5 +304,39 @@ const styles = StyleSheet.create({
     right: 20,
     padding: 10,
     borderRadius: 50
+  },
+  datePickerContainer: {
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 15,
+    shadowRadius: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 0 },
+
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    margin: 'auto'
+  },
+  datePicker: {
+    width: 330,
+  },
+  footer: {
+    paddingHorizontal: 5,
+    paddingVertical: 5,
+    marginTop: 15,
+  },
+  footerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%'
+  },
+  todayButton: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 5,
   },
 });

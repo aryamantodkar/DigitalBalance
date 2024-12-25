@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Screentime = require('../models/Screentime');
 const router = express.Router();
 
 const generateToken = (id) => {
@@ -41,24 +42,57 @@ router.post('/login', async (req, res) => {
 
   try {
     const user = await User.findOne({ email });
-    console.log("user",user)
+
     if (!user) {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
     // Compare the entered password with the hashed password in the database
     const isMatch = await bcrypt.compare(password, user.password);
-    console.log("password",password);
-    console.log("user password",user.password)
-    console.log("match",isMatch)
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
     const token = generateToken(user._id);
-    res.status(200).json({ token });
+    res.status(200).json({ id: user._id, email: user.email, token });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.post('/screentime', async (req, res) => {
+  const { userID, totalScreentime, date, apps } = req.body;
+
+  // Validate request
+  if (!userID || !totalScreentime || !apps || typeof apps !== 'object') {
+    return res.status(400).json({ message: 'Invalid input. All fields are required.' });
+  }
+
+  try {
+    const screentime = new Screentime({
+      userID,
+      totalScreentime,
+      date,
+      apps
+    });
+
+    await screentime.save();
+    res.status(201).json({ message: 'Screentime record created successfully', screentime });
+  } catch (err) {
+    console.error("Error creating screentime record:", err);
+    res.status(500).json({ message: 'Something went wrong. Please try again later.' });
+  }
+});
+
+router.get('/screentime/:userID', async (req, res) => {
+  const { userID } = req.params;
+
+  try {
+    const records = await Screentime.find({ userID }).sort({ date: -1 });
+    res.status(200).json(records);
+  } catch (err) {
+    console.error("Error fetching screentime records:", err);
+    res.status(500).json({ message: 'Something went wrong. Please try again later.' });
   }
 });
 

@@ -8,12 +8,17 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import BottomSheet, { BottomSheetFlatList,BottomSheetView,BottomSheetModal,BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../context/AuthContext';
+import { useNavigation } from '@react-navigation/native'; 
 
-const ScreenTime = ({hours,minutes,displayScreenTime,setDisplayScreenTime,setIsNavbarVisible}) => {
+const ScreenTime = ({hours,minutes,date,displayScreenTime,setDisplayScreenTime,setIsNavbarVisible}) => {
+    const navigation = useNavigation(); 
     const screenTimeText = `${hours}h ${minutes}m`
-    const totalMinutes = ((hours*60) + minutes);
+    const totalMinutes = ((Number(hours)*60) + Number(minutes));
     const bottomSheetRef = useRef(null);
     const screenHeight = Dimensions.get('window').height;
+
+    const { submitScreentime, fetchScreentime } = useAuth();
 
     const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
     const snapPoints = useMemo(() => [screenHeight*0.4, screenHeight*0.6, screenHeight*0.9], []);
@@ -23,6 +28,7 @@ const ScreenTime = ({hours,minutes,displayScreenTime,setDisplayScreenTime,setIsN
     const [outerCircleColour,setOuterCircleColour] = useState("");
     const [innerCircleColour,setInnerCircleColour] = useState("");
     const [expanded, setExpanded] = useState(false);
+    const [loggedApps,setLoggedApps] = useState(false);
 
     const [selectedApps, setSelectedApps] = useState([]);
     const [showError, setShowError] = useState(false);
@@ -38,11 +44,6 @@ const ScreenTime = ({hours,minutes,displayScreenTime,setDisplayScreenTime,setIsN
             text: '#00A0F0',
             outerCircleColour: '#52C5FF',
             innerCircleColour: '#00AAFF',
-        },
-        {
-            text: '#D1D100',
-            outerCircleColour: '#FFFF92',
-            innerCircleColour: '#FFFF00',
         },
         {
             text: '#CE8D01',
@@ -74,26 +75,28 @@ const ScreenTime = ({hours,minutes,displayScreenTime,setDisplayScreenTime,setIsN
         let time = hours>12 ? totalMinutes*10/1440 : (hours>8 ? totalMinutes*10/720 : totalMinutes*10/480);
         setValue(time);
 
-        if(h>=8){
-            selectedColours = circleColours[4];
-        }
-        else if(h<8 && h>=6){
-            selectedColours = circleColours[3];
-        }
-        else if(h<6 && h>=4){
-            selectedColours = circleColours[2];
-        }
-        else if(h<4 && h>=2){
-            selectedColours = circleColours[1];
-        }
-        else{
-            selectedColours = circleColours[0];
-        }
+        selectedColours = returnCircleColours(h);
+        
         setCircleTextColour(selectedColours["text"])
         setInnerCircleColour(selectedColours["innerCircleColour"])
         setOuterCircleColour(selectedColours["outerCircleColour"])
 
     },[totalMinutes,displayScreenTime])
+
+    const returnCircleColours = (hour) => {
+        if(hour>=6){
+            return circleColours[3];
+        }
+        else if(hour<6 && hour>=4){
+            return circleColours[2];
+        }
+        else if(hour<4 && hour>=2){
+            return circleColours[1];
+        }
+        else{
+            return circleColours[0];
+        }
+    }
 
     const handleSearch = (query) => {
         setSearchQuery(query);
@@ -109,14 +112,18 @@ const ScreenTime = ({hours,minutes,displayScreenTime,setDisplayScreenTime,setIsN
 
     // callbacks
     const handleSheetChanges = useCallback((index) => {
-        // console.log("handleSheetChange", index);
         if(index==-1){
             setIsNavbarVisible(true);
             setIsBottomSheetOpen(false);
         }
     }, []);
+
     const handleSnapPress = useCallback((index) => {
         bottomSheetRef.current?.snapToIndex(index);
+    }, []);
+
+    const handleClosePress = useCallback(() => {
+        bottomSheetRef.current?.close();
     }, []);
 
     const handleSelect = (app) => {
@@ -236,16 +243,66 @@ const ScreenTime = ({hours,minutes,displayScreenTime,setDisplayScreenTime,setIsN
 
     // check if hours and minutes field is not empty for an record
     const isValidAppTime = () => {
-        const entries = Object.values(inputValues);
+        let flag = true;
+        let keys = Object.keys(inputValues);
 
-        if (entries.length < 1) {
-            return false;
+        if(keys.length>0){
+            keys.map(key => {
+                if((inputValues[key]["hours"]==undefined || inputValues[key]["hours"]=="") || inputValues[key]["minutes"]==undefined || inputValues[key]["minutes"]==""){
+                    flag = false;
+                }
+            })
         }
 
-        return entries.every(record => 
-            record.hours?.trim() !== '' && record.minutes?.trim() !== ''
-        );
+        return keys.length==selectedApps.length && flag;
     };
+
+    const handleSubmit = async () => {
+        console.log("screentime date",date);
+        const screentimeData = {
+            totalScreentime: totalMinutes, // Total screen time in minutes
+            date: date, // ISO format date
+            apps: inputValues
+        };
+        try {
+          const response = await submitScreentime(screentimeData);
+          navigation.navigate('Home');
+          setSelectedApps([]);
+          setLoggedApps(false);
+          setInputValues({});
+          setDisplayScreenTime(false);
+
+
+          console.log('Screentime submitted successfully:', response);
+        } catch (error) {
+          console.error('Error submitting screentime:', error.message);
+        }
+    };
+    
+      const handleFetch = async () => {
+        const queryDate = '2024-12-24'; // Example query date
+        try {
+          const records = await fetchScreentime(queryDate);
+          console.log('Fetched screentime records:', records);
+        } catch (error) {
+          console.error('Error fetching screentime:', error.message);
+        }
+      };
+
+
+
+      const calculateAppPercentages = (inputValues) => {
+        const appPercentages = {};
+        for (let appId in inputValues) {
+          const { hours, minutes } = inputValues[appId];
+          const appTimeMinutes = parseInt(hours) * 60 + parseInt(minutes);
+
+          appPercentages[appId] = (appTimeMinutes / totalMinutes) * 100;
+        }
+        return appPercentages;
+      };
+    
+      const appPercentages = calculateAppPercentages(inputValues);
 
     return (
         <KeyboardAvoidingView
@@ -267,30 +324,146 @@ const ScreenTime = ({hours,minutes,displayScreenTime,setDisplayScreenTime,setIsN
                                             <AntDesign name="arrowleft" size={24} color="black" />
                                         </Pressable>
                                         <Text style={styles.screenTimeText}>Screen Time</Text>
+                                        {
+                                            loggedApps
+                                            ?
+                                            <Pressable onPress={handleSubmit} style={{backgroundColor: 'black',padding: 10,paddingHorizontal: 15,borderRadius: 20}}>
+                                                <Text style={{fontFamily: 'MontserratMedium',color: '#fff',fontSize: 12}}>Save</Text>
+                                            </Pressable>
+                                            :
+                                            <View></View>
+                                        }
                                     </View>
                                     <View style={styles.progressCircleContainer}>
-                                        <CircularProgress
-                                            value={value}
-                                            title={screenTimeText}
-                                            radius={120}
-                                            titleColor={circleTextColour}
-                                            titleFontSize={25}
-                                            activeStrokeColor={innerCircleColour}
-                                            inActiveStrokeColor={outerCircleColour}
-                                            inActiveStrokeOpacity={0.5}
-                                            inActiveStrokeWidth={40}
-                                            activeStrokeWidth={20}
-                                            showProgressValue={false}
-                                            titleStyle={{fontFamily: 'MontserratMedium'}}
-                                        />
+                                        {
+                                            loggedApps
+                                            ?
+                                            <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',position: 'relative',flex: 1}}>
+                                                {
+                                                    [...selectedApps].sort((a, b) => {
+                                                        const appATime =
+                                                          parseInt(inputValues[a.id]?.hours || 0) * 60 +
+                                                          parseInt(inputValues[a.id]?.minutes || 0);
+                                                        const appBTime =
+                                                          parseInt(inputValues[b.id]?.hours || 0) * 60 +
+                                                          parseInt(inputValues[b.id]?.minutes || 0);
+                                                        return appBTime - appATime;
+                                                      }).map((app, index) => {
+                                                        const appPercentage = appPercentages[app.id] || 0;
+                                                        const appTime = inputValues[app.id] || { hours: "0", minutes: "0" };
+
+                                                        let h = Number(appTime.hours);
+                                                        let innerCircleColour, outerCircleColour, selectedColours;
+
+                                                        selectedColours = returnCircleColours(h);
+
+                                                        innerCircleColour = selectedColours["innerCircleColour"];
+                                                        outerCircleColour = selectedColours["outerCircleColour"];
+                                                
+                                                        return (
+                                                          <View key={app.id} style={[styles.progressContainer, { }]}>
+                                                            <CircularProgress
+                                                              value={appPercentage}
+                                                              title={app.name}
+                                                              radius={120 - index * 40} // Decrease radius for each app to stack
+                                                              activeStrokeColor={innerCircleColour}
+                                                              inActiveStrokeColor={outerCircleColour}
+                                                              inActiveStrokeOpacity={0.5}
+                                                              inActiveStrokeWidth={40}
+                                                              activeStrokeWidth={20}
+                                                              showProgressValue={false}
+                                                              titleStyle={{ fontFamily: "MontserratMedium" }}
+                                                            />
+                                                            {/* <View style={{display: 'flex',flexDirection: 'row',justifyContent: 'center',alignItems: 'center'}}>
+                                                                <Image
+                                                                    source={{ uri: app.appIconUrl }}
+                                                                    style={{ width: 30, height: 30, marginRight: 15, borderRadius: 10 }}
+                                                                    resizeMode="contain"
+                                                                />
+                                                                <Text style={{marginRight: 15}}>:</Text>
+                                                                <View style={{height: 30,width: 30,backgroundColor: innerCircleColour}}></View>
+                                                            </View> */}
+                                                          </View>
+                                                        );
+                                                      })
+                                                }
+                                            </View>
+                                            :
+                                            <CircularProgress
+                                                value={value}
+                                                title={screenTimeText}
+                                                radius={120}
+                                                titleColor={circleTextColour}
+                                                titleFontSize={25}
+                                                activeStrokeColor={innerCircleColour}
+                                                inActiveStrokeColor={outerCircleColour}
+                                                inActiveStrokeOpacity={0.5}
+                                                inActiveStrokeWidth={40}
+                                                activeStrokeWidth={20}
+                                                showProgressValue={false}
+                                                titleStyle={{fontFamily: 'MontserratMedium'}}
+                                            />
+                                        }
                                         <Pressable onPress={() => {
                                             handleSnapPress(2)
                                             setIsNavbarVisible(false)
                                             setIsBottomSheetOpen(true)
                                         }} style={styles.logTimePressable}>
-                                            <Text style={{fontFamily: 'MontserratMedium',}}>Log App Time</Text>
+                                            {
+                                                !loggedApps
+                                                ?
+                                                <Text style={{fontFamily: 'MontserratMedium',}}>Log App Time</Text>
+                                                :
+                                                <Text style={{fontFamily: 'MontserratMedium',}}>Edit App Time</Text>
+                                            }
                                             <Entypo name="plus" size={25} color="black" />
                                         </Pressable>
+
+                                        {
+                                            loggedApps
+                                            ?
+                                            <View style={{display: 'flex',flexDirection: 'column'}}>
+                                                {
+                                                    selectedApps.map(app => {
+                                                        let hour = inputValues[app.id].hours;
+                                                        let selectedColours = returnCircleColours(hour);
+                                                        return(
+                                                            <View style={[styles.appItem,{width:'100%'}]} key={app.id}>
+                                                                <View
+                                                                    style={{
+                                                                        display: 'flex',
+                                                                        flexDirection: 'row',
+                                                                        alignItems: 'center',
+                                                                        maxWidth:'70%'
+                                                                    }}
+                                                                >
+                                                                    <Image
+                                                                        source={{ uri: app.appIconUrl }}
+                                                                        style={{ width: 35, height: 35, marginRight: 15, borderRadius: 10 }}
+                                                                        resizeMode="contain"
+                                                                    />
+                                                                    <Text
+                                                                        style={{
+                                                                            fontSize: 14,
+                                                                            fontFamily: 'MontserratMedium',}}
+                                                                        numberOfLines={1}
+                                                                        ellipsizeMode="tail"
+                                                                    >
+                                                                        {app.appName}
+                                                                    </Text>
+                                                                </View>
+                                                                <View>
+                                                                    <Text style={{fontFamily: 'MontserratSemiBold',color: selectedColours["innerCircleColour"]}}>{inputValues[app.id].hours}h {inputValues[app.id].minutes}m</Text>
+                                                                </View>
+                                                            </View>
+                                                        )
+                                                    })
+                                                }
+                                            </View>
+                                            :
+                                            <View></View>
+
+                                        }
                                     </View>
                                 </View>
                             
@@ -411,6 +584,10 @@ const ScreenTime = ({hours,minutes,displayScreenTime,setDisplayScreenTime,setIsN
                                                         styles.logBtn,
                                                         { backgroundColor: '#000' },
                                                     ]}
+                                                    onPress={()=>{
+                                                        handleClosePress()
+                                                        setLoggedApps(true);
+                                                    }}
                                                 >
                                                     <Text
                                                         style={{
@@ -425,15 +602,13 @@ const ScreenTime = ({hours,minutes,displayScreenTime,setDisplayScreenTime,setIsN
                                                 <Pressable
                                                     style={[
                                                         styles.logBtn,
-                                                        expanded
-                                                            ? {}
-                                                            : { backgroundColor: '#f5f4f4' },
+                                                        { backgroundColor: '#f5f4f4' },
                                                     ]}
                                                 >
                                                     <Text
                                                         style={{
                                                             fontFamily: 'MontserratSemiBold',
-                                                            color: expanded ? '#fff' : '#CFCFCF',
+                                                            color: '#CFCFCF',
                                                         }}
                                                     >
                                                         Log
@@ -526,22 +701,18 @@ const styles = StyleSheet.create({
         fontFamily: 'MontserratMedium',
         color: '#000',
         display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        textAlign: 'center',
-        marginLeft: 'auto',
-        marginRight: 'auto',
     },
     header: {
         display: 'flex',
         flexDirection: 'row',
         width: '100%',
         alignItems: 'center',
+        justifyContent: 'space-between'
     },
     screenTimeContainer: {
         width: '100%',
         height: '100%',
-        padding: 15,
+        padding: 10,
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
@@ -647,7 +818,7 @@ const styles = StyleSheet.create({
         marginRight: 10
     },
     appItem: {
-        padding: 20,
+        padding: 15,
         marginTop: 10,
         marginBottom: 10,
         borderWidth: 1,
@@ -660,7 +831,8 @@ const styles = StyleSheet.create({
         marginLeft: 'auto',
         marginRight: 'auto',
         overflow: 'hidden',
-        justifyContent: 'space-between'
+        justifyContent: 'space-between',
+        backgroundColor: '#fff'
     },
     errorText: {
         color: '#ff4040',
@@ -677,5 +849,9 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#4CAF50',
         marginLeft: 10,
+    },
+    progressContainer: {
+        position: "absolute",
+        alignItems: "center",
     },
 })
