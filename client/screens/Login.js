@@ -23,12 +23,20 @@ const Login = () => {
 
     const handleLogin = async () => {
         try {
-          await login(email, password); // Call the login function from context
-          navigation.navigate('UserContent'); // Navigate to the Home screen on successful login
+            const isLoggedIn = await login(email, password); // Assuming `login` returns a boolean or throws an error
+
+            if (isLoggedIn) {
+                navigation.navigate('UserContent'); // Navigate to the Home screen on successful login
+            } else {
+                console.error('Login failed: Invalid credentials');
+                // Optionally, display an error message to the user
+            }
         } catch (error) {
-          console.error('Login error', error);
+            console.error('Login error:', error.message || error);
+            // Optionally, handle or display the error message
         }
     };
+    
 
     const handleRegisterRedirect = () => {
         navigation.navigate('Register');  // Navigate to the Register screen

@@ -13,13 +13,16 @@ export const AuthProvider = ({ children }) => {
   
   const login = async (email, password) => {
     try {
-      const response = await axios.post(`${baseURL}/api/auth/login`, { email, password });
-      const { id, token } = response.data;
-      await AsyncStorage.setItem('userToken', token);
-      
-      setUser({ id, email, token });
+        const response = await axios.post(`${baseURL}/api/auth/login`, { email, password });
+        const { id, token } = response.data;
+
+        await AsyncStorage.setItem('userToken', token);
+        setUser({ id, email, token });
+
+        return true; // Login successful
     } catch (error) {
-      console.error('Login failed:', error.response?.data?.message || error.message);
+        console.error('Login failed:', error.response?.data?.message || error.message);
+        return false; // Login failed
     }
   };
 
