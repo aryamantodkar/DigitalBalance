@@ -18,7 +18,7 @@ const ScreenTime = ({hours,minutes,date,displayScreenTime,setDisplayScreenTime,s
     const bottomSheetRef = useRef(null);
     const screenHeight = Dimensions.get('window').height;
 
-    const { submitScreentime, fetchScreentime } = useAuth();
+    const { submitScreentime } = useAuth();
 
     const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
     const snapPoints = useMemo(() => [screenHeight*0.4, screenHeight*0.6, screenHeight*0.9], []);
@@ -258,7 +258,6 @@ const ScreenTime = ({hours,minutes,date,displayScreenTime,setDisplayScreenTime,s
     };
 
     const handleSubmit = async () => {
-        console.log("screentime date",date);
         const screentimeData = {
             totalScreentime: totalMinutes, // Total screen time in minutes
             date: date, // ISO format date
@@ -278,18 +277,6 @@ const ScreenTime = ({hours,minutes,date,displayScreenTime,setDisplayScreenTime,s
           console.error('Error submitting screentime:', error.message);
         }
     };
-    
-      const handleFetch = async () => {
-        const queryDate = '2024-12-24'; // Example query date
-        try {
-          const records = await fetchScreentime(queryDate);
-          console.log('Fetched screentime records:', records);
-        } catch (error) {
-          console.error('Error fetching screentime:', error.message);
-        }
-      };
-
-
 
       const calculateAppPercentages = (inputValues) => {
         const appPercentages = {};

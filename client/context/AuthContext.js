@@ -81,23 +81,35 @@ export const AuthProvider = ({ children }) => {
     }
   };
   
-  const fetchScreentime = async (queryDate) => {
+  const fetchScreentime = async () => {
     if (!user) {
+      console.error('Error: User is not logged in');
       throw new Error('User is not logged in');
     }
+  
     try {
-      const response = await axios.get(`${baseURL}/api/screentime`, {
-        params: { userID: user.id, date: queryDate }, // Query params for specific date or range
+      // Construct the URL dynamically with the userID
+      const url = `${baseURL}/api/auth/screentime/${user.id}`;
+      
+      // Make the GET request with query parameters and headers
+      const response = await axios.get(url, {
         headers: {
           Authorization: `Bearer ${user.token}`,
         },
       });
-      return response.data;
+  
+      return response.data; // Return the data if the request is successful
     } catch (error) {
-      console.error('Error fetching screentime:', error.response?.data || error.message);
-      throw error;
+      // Handle and log detailed error messages
+      console.error(
+        'Error fetching screentime:',
+        error.response?.data?.message || error.message
+      );
+  
+      throw error; // Re-throw the error for further handling
     }
   };
+  
 
   useEffect(() => {
     isLoggedIn();
