@@ -29,6 +29,7 @@
     "react-native": "0.76.5",
     "react-native-chart-kit": "^6.12.0",
     "react-native-circular-progress-indicator": "^4.4.2",
+    "react-native-dropdown-picker": "^5.4.6",
     "react-native-gesture-handler": "^2.21.2",
     "react-native-reanimated": "~3.16.1",
     "react-native-safe-area-context": "^5.0.0",
