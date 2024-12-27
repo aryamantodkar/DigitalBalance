@@ -41,7 +41,6 @@ export const AuthProvider = ({ children }) => {
       // Clear AsyncStorage and user data
       await AsyncStorage.removeItem('userToken');
       setUser(null);
-      navigation.navigate('Login'); // Navigate back to the Login screen
     } catch (error) {
       console.error('Logout failed:', error);
     }

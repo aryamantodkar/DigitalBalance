@@ -1,16 +1,29 @@
 import React from 'react';
-import { StyleSheet, ActivityIndicator, SafeAreaView, KeyboardAvoidingView } from 'react-native';
-import { createStackNavigator } from '@react-navigation/stack';  // Import Stack Navigator
+import { StyleSheet, ActivityIndicator, SafeAreaView } from 'react-native';
+import { createStackNavigator } from '@react-navigation/stack';
 import Navbar from './components/Navbar';
 import Login from './screens/Login';
-import Register from './screens/Register'; // Assuming you have a Register screen
+import Register from './screens/Register';
 import { useFonts } from 'expo-font';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { NavigationContainer } from '@react-navigation/native'; // Import NavigationContainer
+import { NavigationContainer } from '@react-navigation/native';
 
 const Stack = createStackNavigator();
 
-const AppContent = () => {
+const AuthStack = () => (
+  <Stack.Navigator>
+    <Stack.Screen name="Login" component={Login} options={{ headerShown: false }} />
+    <Stack.Screen name="Register" component={Register} options={{ headerShown: false }} />
+  </Stack.Navigator>
+);
+
+const AppStack = () => (
+  <Stack.Navigator>
+    <Stack.Screen name="Navbar" component={Navbar} options={{ headerShown: false }} />
+  </Stack.Navigator>
+);
+
+const RootNavigator = () => {
   const [fontsLoaded] = useFonts({
     'MontserratLight': require('./assets/fonts/Montserrat-Light.ttf'),
     'MontserratRegular': require('./assets/fonts/Montserrat-Regular.ttf'),
@@ -21,7 +34,7 @@ const AppContent = () => {
 
   const { user, isLoading } = useAuth();
 
-  // Show loading spinner while fonts are loading or auth state is being checked
+  // Show loading spinner while fonts or authentication state is being loaded
   if (!fontsLoaded || isLoading) {
     return (
       <SafeAreaView style={[styles.container, styles.center]}>
@@ -30,23 +43,18 @@ const AppContent = () => {
     );
   }
 
+  // Display either the authenticated stack or the unauthenticated stack
   return (
-    <KeyboardAvoidingView edges={['right', 'left']} style={styles.container}>
-      {user ? <Navbar /> : null} 
-    </KeyboardAvoidingView>
+    <NavigationContainer>
+      {user ? <AppStack /> : <AuthStack />}
+    </NavigationContainer>
   );
 };
 
 export default function App() {
   return (
     <AuthProvider>
-      <NavigationContainer> 
-        <Stack.Navigator>
-          <Stack.Screen name="Login" component={Login} options={{headerShown: false}}/>
-          <Stack.Screen name="Register" component={Register} options={{headerShown: false}}/>
-          <Stack.Screen name="UserContent" component={AppContent} options={{headerShown: false}}/>
-        </Stack.Navigator>
-      </NavigationContainer>
+      <RootNavigator />
     </AuthProvider>
   );
 }

@@ -26,7 +26,7 @@ const Login = () => {
             const isLoggedIn = await login(email, password); // Assuming `login` returns a boolean or throws an error
 
             if (isLoggedIn) {
-                navigation.navigate('UserContent'); // Navigate to the Home screen on successful login
+
             } else {
                 console.error('Login failed: Invalid credentials');
                 // Optionally, display an error message to the user
