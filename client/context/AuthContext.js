@@ -88,7 +88,7 @@ export const AuthProvider = ({ children }) => {
       console.error('Error: User is not logged in');
       throw new Error('User is not logged in');
     }
-  
+
     try {
       // Construct the URL dynamically with the userID
       const url = `${baseURL}/api/auth/screentime/${user.id}`;

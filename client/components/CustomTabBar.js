@@ -21,9 +21,9 @@ const CustomTabBar = ({ state, descriptors, navigation, isNavbarVisible }) => {
     ];
 
     const iconsFocused = [
-        <Entypo name="home" size={25} color="black" />,
-        <Entypo name="plus" size={25} color="black" />,
-        <Ionicons name="person" size={25} color="black" />
+        <Entypo name="home" size={25} color="white" />,
+        <Entypo name="plus" size={25} color="white" />,
+        <Ionicons name="person" size={25} color="white" />
     ];
 
     const handleTabLayout = (event, index) => {
@@ -99,20 +99,21 @@ export default CustomTabBar;
 
 const styles = StyleSheet.create({
     customTabBar: {
-        width: '90%', // Reduced width for the navbar
+        width: '80%', // Reduced width for the navbar
         flexDirection: 'row',
         justifyContent: 'space-around',
         alignItems: 'center',
-        backgroundColor: '#fff',
-        paddingVertical: 10,
-        borderRadius: 50,
+        backgroundColor: '#404040',
+        paddingVertical: 15,
+        borderRadius: 100,
         alignSelf: 'center',
         position: 'absolute',
-        bottom: 30
+        bottom: 20,
+        opacity: 0.8
     },
     circle: {
         position: 'absolute',
-        backgroundColor: '#f5f4f4',
+        backgroundColor: '#000',
     },
     tabButton: {
         flex: 1,
