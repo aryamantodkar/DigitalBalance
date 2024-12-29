@@ -325,7 +325,7 @@ const AccountPage = () => {
           {['year', 'month', 'week'].map((key) => (
             <Pressable key={key} onPress={() => handlePress(key)}>
               <Animated.View style={[styles.dateGroup, getStyleForGroup(key)]}>
-                <Text style={{ fontFamily: 'MontserratMedium' }}>
+                <Text style={{ fontFamily: 'InterHeadingRegular' }}>
                   {key.charAt(0).toUpperCase() + key.slice(1)}ly
                 </Text>
               </Animated.View>
@@ -359,11 +359,11 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 18,
-    fontFamily: 'MontserratMedium',
+    fontFamily: 'InterHeadingRegular',
     marginBottom: 10,
   },
   chartHeader: {
-    fontFamily: 'MontserratSemiBold',
+    fontFamily: 'InterHeadingMedium',
     color: '#000',
     fontSize: 18
   },
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
   dropdownText: {
     fontSize: 14,
     color: '#000',
-    fontFamily: 'MontserratMedium',
+    fontFamily: 'InterHeadingRegular',
   },
   icon: {
     width: 30, // Adjust as needed

@@ -161,7 +161,7 @@ const LogTime = ({setIsNavbarVisible}) => {
                 setShowCalendar(true);
               }} style={styles.dateContainer}>
                 <FontAwesome5 name="calendar-alt" size={24} color="#686868" />
-                <Text style={{marginLeft: 10,color: '#404040',fontFamily: 'MontserratLight',}}>Pick a different date?</Text>
+                <Text style={{marginLeft: 10,color: '#404040',fontFamily: 'InterHeadingRegular',}}>Pick a different date?</Text>
               </Pressable>
             </Animated.View>
             {
@@ -206,7 +206,7 @@ const LogTime = ({setIsNavbarVisible}) => {
                         ]}
                       >
                         <Text
-                          style={{ color: '#fff',fontFamily: 'MontserratBold' }}
+                          style={{ color: '#fff',fontFamily: 'InterHeadingMedium' }}
                         >
                           Today
                         </Text>
@@ -220,7 +220,7 @@ const LogTime = ({setIsNavbarVisible}) => {
                     }}
                       onPress={() => setShowCalendar(false)}
                     >
-                      <Text style={{fontFamily: 'MontserratSemiBold',color: '#404040'}}>Select</Text>
+                      <Text style={{fontFamily: 'InterHeadingMedium',color: '#404040'}}>Select</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -240,7 +240,7 @@ export default LogTime;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f4f4',
+    backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
@@ -259,11 +259,11 @@ const styles = StyleSheet.create({
   },
   heading: {
     fontSize: 75,
-    fontFamily: 'MontserratSemiBold',
+    fontFamily: 'InterHeadingMedium',
   },
   subHeading: {
     fontSize: 25,
-    fontFamily: 'MontserratMedium',
+    fontFamily: 'InterHeadingRegular',
     color: '#404040',
   },
   inputContainer: {
@@ -281,14 +281,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     textAlign: 'center',
     fontSize: 20,
-    fontFamily: 'MontserratMedium',
+    fontFamily: 'InterHeadingRegular',
     color: '#000',
     borderRadius: 5,
     marginRight: 20,
   },
   inputText: {
     fontSize: 20,
-    fontFamily: 'MontserratMedium',
+    fontFamily: 'InterHeadingRegular',
     color: '#404040',
   },
   dateContainer: {

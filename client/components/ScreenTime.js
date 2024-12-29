@@ -211,7 +211,7 @@ const ScreenTime = ({hours,minutes,date,displayScreenTime,setDisplayScreenTime,s
                         <Text
                             style={{
                                 fontSize: 14,
-                                fontFamily: 'MontserratMedium',}}
+                                fontFamily: 'InterHeadingRegular',}}
                             numberOfLines={1}
                             ellipsizeMode="tail"
                         >
@@ -315,7 +315,7 @@ const ScreenTime = ({hours,minutes,date,displayScreenTime,setDisplayScreenTime,s
                                             loggedApps
                                             ?
                                             <Pressable onPress={handleSubmit} style={{backgroundColor: 'black',padding: 10,paddingHorizontal: 15,borderRadius: 20}}>
-                                                <Text style={{fontFamily: 'MontserratMedium',color: '#fff',fontSize: 12}}>Save</Text>
+                                                <Text style={{fontFamily: 'InterHeadingRegular',color: '#fff',fontSize: 12}}>Save</Text>
                                             </Pressable>
                                             :
                                             <View></View>
@@ -359,7 +359,7 @@ const ScreenTime = ({hours,minutes,date,displayScreenTime,setDisplayScreenTime,s
                                                               inActiveStrokeWidth={40}
                                                               activeStrokeWidth={20}
                                                               showProgressValue={false}
-                                                              titleStyle={{ fontFamily: "MontserratMedium" }}
+                                                              titleStyle={{ fontFamily: "InterHeadingRegular" }}
                                                             />
                                                             {/* <View style={{display: 'flex',flexDirection: 'row',justifyContent: 'center',alignItems: 'center'}}>
                                                                 <Image
@@ -388,7 +388,7 @@ const ScreenTime = ({hours,minutes,date,displayScreenTime,setDisplayScreenTime,s
                                                 inActiveStrokeWidth={40}
                                                 activeStrokeWidth={20}
                                                 showProgressValue={false}
-                                                titleStyle={{fontFamily: 'MontserratMedium'}}
+                                                titleStyle={{fontFamily: 'InterHeadingRegular'}}
                                             />
                                         }
                                         <Pressable onPress={() => {
@@ -399,9 +399,9 @@ const ScreenTime = ({hours,minutes,date,displayScreenTime,setDisplayScreenTime,s
                                             {
                                                 !loggedApps
                                                 ?
-                                                <Text style={{fontFamily: 'MontserratMedium',}}>Log App Time</Text>
+                                                <Text style={{fontFamily: 'InterHeadingRegular',}}>Log App Time</Text>
                                                 :
-                                                <Text style={{fontFamily: 'MontserratMedium',}}>Edit App Time</Text>
+                                                <Text style={{fontFamily: 'InterHeadingRegular',}}>Edit App Time</Text>
                                             }
                                             <Entypo name="plus" size={25} color="black" />
                                         </Pressable>
@@ -432,7 +432,7 @@ const ScreenTime = ({hours,minutes,date,displayScreenTime,setDisplayScreenTime,s
                                                                     <Text
                                                                         style={{
                                                                             fontSize: 14,
-                                                                            fontFamily: 'MontserratMedium',}}
+                                                                            fontFamily: 'InterHeadingRegular',}}
                                                                         numberOfLines={1}
                                                                         ellipsizeMode="tail"
                                                                     >
@@ -440,7 +440,7 @@ const ScreenTime = ({hours,minutes,date,displayScreenTime,setDisplayScreenTime,s
                                                                     </Text>
                                                                 </View>
                                                                 <View>
-                                                                    <Text style={{fontFamily: 'MontserratSemiBold',color: selectedColours["innerCircleColour"]}}>{inputValues[app.id].hours}h {inputValues[app.id].minutes}m</Text>
+                                                                    <Text style={{fontFamily: 'InterHeadingMedium',color: selectedColours["innerCircleColour"]}}>{inputValues[app.id].hours}h {inputValues[app.id].minutes}m</Text>
                                                                 </View>
                                                             </View>
                                                         )
@@ -470,7 +470,7 @@ const ScreenTime = ({hours,minutes,date,displayScreenTime,setDisplayScreenTime,s
                                         <BottomSheetView style={styles.bottomSheetContainer}>
                                             <View style={styles.bottomSheetHeader}>
                                                 <FontAwesome6 name="hourglass-empty" size={30} color="black" />
-                                                <Text style={{ fontFamily: 'MontserratSemiBold', fontSize: 20, marginLeft: 20}}>
+                                                <Text style={{ fontFamily: 'InterHeadingMedium', fontSize: 20, marginLeft: 20}}>
                                                     App Time
                                                 </Text>
                                             </View>
@@ -526,7 +526,7 @@ const ScreenTime = ({hours,minutes,date,displayScreenTime,setDisplayScreenTime,s
                                                                 <Text
                                                                     style={{
                                                                         fontSize: 14,
-                                                                        fontFamily: 'MontserratMedium',}}
+                                                                        fontFamily: 'InterHeadingRegular',}}
                                                                     numberOfLines={1}
                                                                     ellipsizeMode="tail"
                                                                 >
@@ -578,7 +578,7 @@ const ScreenTime = ({hours,minutes,date,displayScreenTime,setDisplayScreenTime,s
                                                 >
                                                     <Text
                                                         style={{
-                                                            fontFamily: 'MontserratSemiBold',
+                                                            fontFamily: 'InterHeadingMedium',
                                                             color: '#fff',
                                                         }}
                                                     >
@@ -594,7 +594,7 @@ const ScreenTime = ({hours,minutes,date,displayScreenTime,setDisplayScreenTime,s
                                                 >
                                                     <Text
                                                         style={{
-                                                            fontFamily: 'MontserratSemiBold',
+                                                            fontFamily: 'InterHeadingMedium',
                                                             color: '#CFCFCF',
                                                         }}
                                                     >
@@ -685,7 +685,7 @@ const styles = StyleSheet.create({
     },
     screenTimeText: {
         fontSize: 20,
-        fontFamily: 'MontserratMedium',
+        fontFamily: 'InterHeadingRegular',
         color: '#000',
         display: 'flex',
     },
@@ -767,14 +767,14 @@ const styles = StyleSheet.create({
         width: 35,
         backgroundColor: '#F5F4F4',
         textAlign: 'center',
-        fontFamily: 'MontserratRegular',
+        fontFamily: 'InterHeadingRegular',
         color: '#000',
         borderRadius: 5,
         marginRight: 20,
     },
     inputText: {
         fontSize: 13,
-        fontFamily: 'MontserratMedium',
+        fontFamily: 'InterHeadingRegular',
         color: '#404040',
     },
     logBtn: {

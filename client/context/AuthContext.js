@@ -9,7 +9,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState(''); // To show success or error message
 
-  const baseURL = 'http://192.168.29.238:5000'; // Replace with your server IP
+  const baseURL = 'http://192.168.1.11:5000'; // Replace with your server IP
   
   const login = async (email, password) => {
     try {

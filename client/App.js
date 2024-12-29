@@ -25,11 +25,17 @@ const AppStack = () => (
 
 const RootNavigator = () => {
   const [fontsLoaded] = useFonts({
-    'MontserratLight': require('./assets/fonts/Montserrat-Light.ttf'),
-    'MontserratRegular': require('./assets/fonts/Montserrat-Regular.ttf'),
-    'MontserratMedium': require('./assets/fonts/Montserrat-Medium.ttf'),
-    'MontserratSemiBold': require('./assets/fonts/Montserrat-SemiBold.ttf'),
-    'MontserratBold': require('./assets/fonts/Montserrat-Bold.ttf'),
+    'InterSubtextExtraLight': require('./assets/fonts/Inter_18pt-ExtraLight.ttf'),
+    'InterSubtextLight': require('./assets/fonts/Inter_18pt-Light.ttf'),
+    'InterSubtextRegular': require('./assets/fonts/Inter_18pt-Regular.ttf'),
+    'InterSubtextSemiBold': require('./assets/fonts/Inter_18pt-SemiBold.ttf'),
+    'InterSubtextBold': require('./assets/fonts/Inter_18pt-Bold.ttf'),
+    'InterHeadingExtraLight': require('./assets/fonts/Inter_24pt-ExtraLight.ttf'),
+    'InterHeadingLight': require('./assets/fonts/Inter_24pt-Light.ttf'),
+    'InterHeadingRegular': require('./assets/fonts/Inter_24pt-Regular.ttf'),
+    'InterHeadingMedium': require('./assets/fonts/Inter_24pt-Medium.ttf'),
+    'InterHeadingSemiBold': require('./assets/fonts/Inter_24pt-SemiBold.ttf'),
+    'InterHeadingBold': require('./assets/fonts/Inter_24pt-Bold.ttf'),
   });
 
   const { user, isLoading } = useAuth();
@@ -62,7 +68,7 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f4f4',
+    backgroundColor: '#fff',
   },
   center: {
     justifyContent: 'center',

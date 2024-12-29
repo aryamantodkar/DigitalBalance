@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, StyleSheet, Animated, Easing,Text, ScrollView } from 'react-native';
+import { View, StyleSheet, Animated, Easing, Text } from 'react-native';
 
 const ScreenTimeClock = ({ screentime, limit }) => {
   const [time, setTime] = useState(new Date());
-  const fillPercentage = Math.min(screentime / limit, 1);  // Calculate the fill percentage
+  const fillPercentage = Math.max(1 - screentime / limit, 0); // Reverse the fill logic
 
-  const waterFillAnimation = useRef(new Animated.Value(0)).current;
+  const waterFillAnimation = useRef(new Animated.Value(1)).current;
   const hourHandRotation = useRef(new Animated.Value(0)).current;
   const minuteHandRotation = useRef(new Animated.Value(0)).current;
   const secondHandRotation = useRef(new Animated.Value(0)).current;
@@ -14,17 +14,16 @@ const ScreenTimeClock = ({ screentime, limit }) => {
     const hours = Math.floor(time / 60);
     const minutes = Math.floor(time % 60);
 
-    if(hours>0){
+    if (hours > 0) {
       return `${hours}h ${minutes}m`;
-    }
-    else{
+    } else {
       return `${minutes}m`;
     }
-  }
+  };
 
   const todayTime = convertTime(screentime);
   const limitTime = convertTime(limit);
-  const remainingTime = convertTime(limit-screentime);
+  const remainingTime = convertTime(limit - screentime);
 
   useEffect(() => {
     // Animate the water fill when fillPercentage changes
@@ -40,7 +39,6 @@ const ScreenTimeClock = ({ screentime, limit }) => {
     const newMinuteAngle = time.getMinutes() * 6;
     const newSecondAngle = time.getSeconds() * 6;
 
-    // Animate hour hand
     Animated.timing(hourHandRotation, {
       toValue: newHourAngle,
       duration: 500,
@@ -48,7 +46,6 @@ const ScreenTimeClock = ({ screentime, limit }) => {
       useNativeDriver: false,
     }).start();
 
-    // Animate minute hand
     Animated.timing(minuteHandRotation, {
       toValue: newMinuteAngle,
       duration: 500,
@@ -56,7 +53,6 @@ const ScreenTimeClock = ({ screentime, limit }) => {
       useNativeDriver: false,
     }).start();
 
-    // Animate second hand
     Animated.timing(secondHandRotation, {
       toValue: newSecondAngle,
       duration: 500,
@@ -71,60 +67,56 @@ const ScreenTimeClock = ({ screentime, limit }) => {
     return () => clearInterval(intervalId);
   }, [fillPercentage, time]);
 
-  // Interpolated color for water fill based on percentage
+  // Reversed color interpolation for water fill
   const waterFillColor = waterFillAnimation.interpolate({
     inputRange: [0, 0.5, 0.75, 1],
-    outputRange: ['#A2C8FF', '#A8D5BA', '#FFB84D', '#FF6F61'], // Soft Blue, Green, Orange, Red
+    outputRange: ['#FF6F61', '#FFB84D', '#A8D5BA', '#A2C8FF'], // Red to Blue
   });
 
-  // Interpolated color for the hands based on percentage
+  // Interpolated color for the hands
   const handsColor = waterFillAnimation.interpolate({
     inputRange: [0, 0.5, 0.75, 1],
-    outputRange: ['#2C3E50', '#4D7C6D', '#E67E22', '#C0392B'], // Dark Gray, Green, Orange, Red
+    outputRange: ['#C0392B', '#E67E22', '#4D7C6D', '#2C3E50'], // Red to Dark Gray
   });
 
-  // Interpolated color for the clock face based on percentage
+  // Interpolated color for the clock face
   const clockFaceColor = waterFillAnimation.interpolate({
     inputRange: [0, 0.5, 0.75, 1],
-    outputRange: ['#F2F9FF', '#D8E9E1', '#FCE4C1', '#FBE1DC'], // Light Gray, Greenish, Yellow, Red
+    outputRange: ['#FBE1DC', '#FCE4C1', '#D8E9E1', '#F2F9FF'], // Red to Light Gray
   });
 
-  // Interpolated color for the center dot and border based on percentage
+  // Interpolated color for the center dot and border
   const centerDotColor = waterFillAnimation.interpolate({
     inputRange: [0, 0.5, 0.75, 1],
-    outputRange: ['#2C3E50', '#4D7C6D', '#E67E22', '#C0392B'], // Matching the hand colors
+    outputRange: ['#C0392B', '#E67E22', '#4D7C6D', '#2C3E50'], // Red to Gray
   });
 
   const borderColor = waterFillAnimation.interpolate({
     inputRange: [0, 0.5, 0.75, 1],
-    outputRange: ['#B8C9E5', '#A8D5BA', '#FFB84D', '#FF6F61'], // Matching the water color
+    outputRange: ['#FF6F61', '#FFB84D', '#A8D5BA', '#B8C9E5'], // Red to Blue
   });
 
-  // Interpolated shadow color based on fill percentage, using darker tones for visibility
   const shadowColor = waterFillAnimation.interpolate({
     inputRange: [0, 0.5, 0.75, 1],
-    outputRange: ['#6C7A89', '#5B8A8C', '#E67E22', '#C0392B'], // Darker Gray, Teal, Orange, Red
+    outputRange: ['#C0392B', '#E67E22', '#5B8A8C', '#6C7A89'], // Red to Darker Gray
   });
 
   const screentimeTextColor = waterFillAnimation.interpolate({
     inputRange: [0, 0.5, 0.75, 1],
-    outputRange: ['#2C3E50', '#4D7C6D', '#E67E22', '#C0392B'], // Matching the hands colors
+    outputRange: ['#C0392B', '#E67E22', '#4D7C6D', '#2C3E50'], // Red to Gray
   });
 
   return (
     <View style={styles.container}>
-      <View style={{display: 'flex',flexDirection: 'column'}}>
+      <View style={{ display: 'flex', flexDirection: 'column' }}>
         <Animated.View style={[styles.clockFace, { backgroundColor: clockFaceColor, borderColor: borderColor, shadowColor: shadowColor }]}>
           <Animated.View
             style={[
               styles.waterFill,
               {
                 height: `${fillPercentage * 100}%`,
-                opacity: waterFillAnimation,
-                backgroundColor: waterFillColor, // Dynamic color based on fillPercentage
-                shadowColor: shadowColor,  // Dynamic shadow color
-                shadowOpacity: 0.6,         // Increased shadow opacity for better visibility
-                shadowRadius: 18,           // Increased shadow radius for better depth
+                backgroundColor: waterFillColor, // Reversed colors
+                shadowColor: shadowColor,
               },
             ]}
           />
@@ -133,7 +125,7 @@ const ScreenTimeClock = ({ screentime, limit }) => {
             style={[
               styles.centerDot,
               {
-                backgroundColor: centerDotColor,  // Dynamic color for center dot
+                backgroundColor: centerDotColor, // Reversed colors
               }
             ]}
           />
@@ -141,9 +133,9 @@ const ScreenTimeClock = ({ screentime, limit }) => {
           <Animated.View
             style={[
               styles.hand,
-              { 
+              {
                 transform: [{ rotate: hourHandRotation.interpolate({ inputRange: [0, 360], outputRange: ['0deg', '360deg'] }) }],
-                backgroundColor: handsColor,  // Dynamic color for hour hand
+                backgroundColor: handsColor, // Reversed colors
               }
             ]}
           />
@@ -151,9 +143,9 @@ const ScreenTimeClock = ({ screentime, limit }) => {
           <Animated.View
             style={[
               styles.hand,
-              { 
+              {
                 transform: [{ rotate: minuteHandRotation.interpolate({ inputRange: [0, 360], outputRange: ['0deg', '360deg'] }) }],
-                backgroundColor: handsColor,  // Dynamic color for minute hand
+                backgroundColor: handsColor, // Reversed colors
               }
             ]}
           />
@@ -161,9 +153,9 @@ const ScreenTimeClock = ({ screentime, limit }) => {
           <Animated.View
             style={[
               styles.secondHand,
-              { 
+              {
                 transform: [{ rotate: secondHandRotation.interpolate({ inputRange: [0, 360], outputRange: ['0deg', '360deg'] }) }],
-                backgroundColor: handsColor,  // Dynamic color for second hand
+                backgroundColor: handsColor, // Reversed colors
               }
             ]}
           />
@@ -173,7 +165,7 @@ const ScreenTimeClock = ({ screentime, limit }) => {
             style={[
               styles.timeText,
               {
-                color: screentimeTextColor, // Apply dynamic color to the screentime text
+                color: screentimeTextColor, // Apply reversed colors
               },
             ]}
           >
@@ -193,7 +185,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'column',
     marginVertical: 20,
-    width: '100%'
+    width: '100%',
   },
   clockFace: {
     width: 250,
@@ -206,14 +198,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 12,
     overflow: 'hidden',
-    marginBottom: 10
+    marginBottom: 10,
   },
   waterFill: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    borderRadius: 0, 
+    borderRadius: 0,
     width: '100%',
     zIndex: 0,
   },
@@ -255,16 +247,16 @@ const styles = StyleSheet.create({
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10
+    marginTop: 10,
   },
   timeText: {
     fontSize: 25,
-    fontFamily: 'MontserratSemiBold',
+    fontFamily: 'InterHeadingMedium',
   },
   limitText: {
     fontSize: 20,
     color: '#636e72', // Subtle gray text
-    fontFamily: 'MontserratMedium',
+    fontFamily: 'InterHeadingRegular',
   },
 });
 

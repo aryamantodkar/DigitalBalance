@@ -90,37 +90,63 @@ const HomePage = () => {
         </View>
         <ScreenTimeClock 
           screentime={todaysData ? todaysData.totalScreentime : 0} 
+          // screentime={120}
           limit={180}
         />
         {
-          todaysData!=null
-          ?
-          <View style={styles.topApps}>
-            <View style={{marginBottom: 20}}>
-              <Text style={{fontFamily: 'MontserratSemiBold',fontSize: 25}}>Today's App Usage</Text>
-            </View>
-            {
-              todaysData.apps.map(app => {
-                return(
-                  <View style={styles.appContainer} key={app.id}>
-                      <View style={{display: 'flex',flexDirection: 'row',alignItems: 'center',maxWidth: '75%',overflow: 'hidden'}}>
-                          <Image
-                              source={{ uri: app.appIconUrl }}
-                              style={{ width: 35, height: 35, marginRight: 15, borderRadius: 10 }}
-                              resizeMode="contain"
+          todaysData ? (
+            <View style={styles.topApps}>
+              <View style={{ marginBottom: 20 }}>
+                <Text style={{ fontFamily: 'InterHeadingMedium', fontSize: 25 }}>Today's App Usage</Text>
+              </View>
+              {
+                todaysData.apps.map((app) => {
+                  const percentage = Math.min((app.totalMinutes / 180) * 100, 100); // Assuming 180 is the limit
+              
+                  // Define the dynamic color based on percentage
+                  const getColor = (percent) => {
+                    if (percent < 25) return '#A2C8FF'; 
+                    if (percent < 50) return '#A8D5BA'; 
+                    if (percent < 75) return '#FFB84D'; 
+                    return '#FF6F61'; 
+                  };
+                  
+              
+                  return (
+                    <View style={styles.appContainer} key={app.id}>
+                      <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', overflow: 'hidden' }}>
+                        <Image
+                          source={{ uri: app.appIconUrl }}
+                          style={{ width: 35, height: 35, marginRight: 15, borderRadius: 10 }}
+                          resizeMode="contain"
+                        />
+                        <View style={{display: 'flex',flexDirection: 'column',maxWidth: '70%',minWidth: '70%'}}>
+                          <Text style={{ fontFamily: 'InterHeadingRegular' }}>{app.name}</Text>
+                          <View style={styles.progressBarContainer}>
+                          <View
+                            style={[
+                              styles.progressBar,
+                              { width: `${percentage}%`, backgroundColor: getColor(percentage) },
+                            ]}
                           />
-                          <Text style={{fontFamily: 'MontserratMedium',}}>{app.name}</Text>
+                        </View>
+                        </View>
                       </View>
                       <View>
-                        <Text style={{fontFamily: 'MontserratSemiBold',color: '#000'}}>{convertTime(app.totalMinutes)}</Text>
+                        <Text style={{ fontFamily: 'InterHeadingMedium', color: '#000' }}>{convertTime(app.totalMinutes)}</Text>
                       </View>
-                  </View>
-                )
-              })
-            }
-          </View>
-          :
-          null
+                    </View>
+                  )
+                })
+              }
+            </View>
+          ) : (
+            <View style={styles.topApps}>
+              <Text style={{ fontFamily: 'InterHeadingMedium', fontSize: 18, color: '#636e72' }}>
+                No screentime data available for today.
+              </Text>
+            </View>
+          )
         }
       </ScrollView>
     </View>
@@ -132,7 +158,7 @@ export default HomePage;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f4f4',
+    backgroundColor: '#fff',
     // justifyContent: 'center',
     alignItems: 'center',
   },
@@ -145,13 +171,13 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 30,
     color: '#636e72', // Subtle gray text
-    fontFamily: 'MontserratMedium',
+    fontFamily: 'InterHeadingRegular',
     opacity: 0.5
   },
   headerUserName: {
     fontSize: 45,
     color: '#404040',
-    fontFamily: 'MontserratSemiBold',
+    fontFamily: 'InterHeadingMedium',
   },
   appContainer: {
     display: 'flex',
@@ -164,15 +190,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#f5f4f4',
     padding: 15,
-    borderRadius: 10
+    borderRadius: 10,
   },
   topApps: {
     backgroundColor: '#fff',
-    width: "90%",
+    width: "95%",
     padding: 15,
     borderRadius: 10,
     display: 'flex',
     flexDirection: 'column',
     paddingHorizontal: 20
-  }
+  },
+  progressBarContainer: {
+    height: 10, // Height of the progress bar
+    backgroundColor: '#e0e0e0', // Background of the bar for visibility
+    borderRadius: 5,
+    overflow: 'hidden',
+    marginTop: 8, // Space between the progress bar and app details
+    width: '100%', // Full width of the container
+  },
+  progressBar: {
+    height: '100%', // Match the height of the container
+    borderRadius: 5,
+  },
 });
