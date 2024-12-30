@@ -13,7 +13,7 @@ const Navbar = () => {
   const [isNavbarVisible, setIsNavbarVisible] = useState(true);
 
   return (
-    <SafeAreaView edges={['right','top', 'left']} style={{ width: '100%', flex: 1,height: '100%',backgroundColor: 'white'}}>
+    <SafeAreaView edges={['right','top', 'left']} style={{ width: '100%', flex: 1,height: '100%',backgroundColor: '#f9fbfa'}}>
         <Tab.Navigator
             tabBar={(props) => <CustomTabBar {...props} isNavbarVisible={isNavbarVisible} />}
         >

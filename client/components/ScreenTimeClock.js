@@ -70,7 +70,7 @@ const ScreenTimeClock = ({ screentime, limit }) => {
   // Reversed color interpolation for water fill
   const waterFillColor = waterFillAnimation.interpolate({
     inputRange: [0, 0.5, 0.75, 1],
-    outputRange: ['#FF6F61', '#FFB84D', '#A8D5BA', '#A2C8FF'], // Red to Blue
+    outputRange: ['#FF5E4F', '#FFB84D', '#A8D5BA', '#A2C8FF'], // Red to Blue
   });
 
   // Interpolated color for the hands
@@ -93,7 +93,7 @@ const ScreenTimeClock = ({ screentime, limit }) => {
 
   const borderColor = waterFillAnimation.interpolate({
     inputRange: [0, 0.5, 0.75, 1],
-    outputRange: ['#FF6F61', '#FFB84D', '#A8D5BA', '#B8C9E5'], // Red to Blue
+    outputRange: ['#FF5E4F', '#FFB84D', '#A8D5BA', '#B8C9E5'], // Red to Blue
   });
 
   const shadowColor = waterFillAnimation.interpolate({

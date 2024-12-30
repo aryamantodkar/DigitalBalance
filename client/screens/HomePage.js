@@ -108,7 +108,7 @@ const HomePage = () => {
                     if (percent < 25) return '#A2C8FF'; 
                     if (percent < 50) return '#A8D5BA'; 
                     if (percent < 75) return '#FFB84D'; 
-                    return '#FF6F61'; 
+                    return '#FF5E4F'; 
                   };
                   
               
@@ -158,7 +158,7 @@ export default HomePage;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f9fbfa',
     // justifyContent: 'center',
     alignItems: 'center',
   },
@@ -187,13 +187,18 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 10,
     width: '100%',
-    borderWidth: 1,
-    borderColor: '#f5f4f4',
     padding: 15,
     borderRadius: 10,
+    backgroundColor: '#fff',
+    // iOS shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    // Android shadow
+    elevation: 5,
   },
   topApps: {
-    backgroundColor: '#fff',
     width: "95%",
     padding: 15,
     borderRadius: 10,

@@ -103,17 +103,25 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-around',
         alignItems: 'center',
-        backgroundColor: '#f5f4f4',
+        backgroundColor: '#fff',
         paddingVertical: 10,
         borderRadius: 100,
         alignSelf: 'center',
         position: 'absolute',
         bottom: 20,
-        opacity: 0.8
+        opacity: 0.8,
+
+        // iOS shadow
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.1,
+        shadowRadius: 5,
+        // Android shadow
+        elevation: 5,
     },
     circle: {
         position: 'absolute',
-        backgroundColor: '#fff',
+        backgroundColor: '#f5f4f4',
     },
     tabButton: {
         flex: 1,
