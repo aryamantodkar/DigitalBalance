@@ -9,20 +9,41 @@ import { useAuth } from '../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
 import AppList from '../AppList.json';
 import AntDesign from '@expo/vector-icons/AntDesign';
+import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import Feather from '@expo/vector-icons/Feather';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import moment from 'moment';
+import isBetween from 'dayjs/plugin/isBetween';
+import Carousel from 'react-native-reanimated-carousel';
+import Svg, { Path, LinearGradient, Stop, Defs } from 'react-native-svg';
 
 const AccountPage = () => {
+  dayjs.extend(isBetween);
+  dayjs.extend(advancedFormat);
+  dayjs.extend(isoWeek);
+
   const { logout } = useAuth();
   const navigation = useNavigation();
+  const width = Dimensions.get('window').width;
+  const height = 150;
+  const amplitude = 40; // Height of the sine wave
+  const frequency = 2; // Number of waves
+
+  const createSinePath = () => {
+    let path = `M 0 ${height / 2}`;
+    for (let x = 0; x <= width; x++) {
+      const y = height / 2 + amplitude * Math.sin((x / width) * frequency * 2 * Math.PI);
+      path += ` L ${x} ${y}`;
+    }
+    // Add a line to the bottom-right and back to the bottom-left without closing the path
+    path += ` L ${width} ${height} L 0 ${height}`;
+    return path;
+  };
 
   const { fetchScreentime } = useAuth();
 
-  dayjs.extend(advancedFormat);
-  dayjs.extend(isoWeek);
   const [chartData, setChartData] = useState({ labels: [], data: [] });
   const [selectedPointIndex, setSelectedPointIndex] = useState(null);
   const [groupBy, setGroupBy] = useState('week');
@@ -33,6 +54,7 @@ const AccountPage = () => {
   ]);
   const animatedValue = useRef(new Animated.Value(8)).current; // Ref for dot size animation
   const animatedOpacity = useRef(new Animated.Value(1)).current;
+  const [insights,setInsights] = useState([]);
 
   const animatedValues = {
     year: new Animated.Value(groupBy === 'year' ? 1 : 0),
@@ -76,7 +98,11 @@ const AccountPage = () => {
         }
       });
 
+      const insights = generateInsights(transformedData);
+      setInsights(insights);
+
       setAvailableApps(formattedApps);
+
       updateChartData(transformedData, groupBy, selectedApp);
     } catch (error) {
       console.error('Error fetching screentime:', error.message);
@@ -92,6 +118,92 @@ const AccountPage = () => {
       fetchData(); // Refresh data when the screen is focused
     }, [])
   );
+
+  const generateInsights = (data) => {
+    const avgDaily = calculateAverageScreentime(data);
+    const { bestDay, worstDay } = findBestAndWorstDays(data);
+    const { currentWeekData, lastWeekData } = getWeekData(data);
+    const percentageChange = (calculatePercentageChange(currentWeekData, lastWeekData)).toFixed(2);
+    const { totalDays: fiveYearDays } = calculateProjectedScreentime(avgDaily, 5);
+    const { totalDays: fiftyYearDays } = calculateProjectedScreentime(avgDaily, 50);
+
+    const insights = [
+      {
+        fiveYearDays,
+        fiftyYearDays,
+        avgDaily, 
+      },
+      {
+        percentageChange,
+        avgDaily,
+      },
+      {
+        bestDay,
+        worstDay,
+      }
+    ];
+
+    return insights;
+  };
+
+  const calculatePercentageChange = (currentPeriod, previousPeriod) => {
+    const currentTotal = currentPeriod.reduce((total, day) => total + day.totalScreentime, 0);
+    const previousTotal = previousPeriod.reduce((total, day) => total + day.totalScreentime, 0);
+  
+    if (previousTotal === 0) return null; // Avoid division by zero
+  
+    return ((currentTotal - previousTotal) / previousTotal) * 100;
+  };
+
+  const findBestAndWorstDays = (data) => {
+    if (!data || data.length === 0) return { bestDay: null, worstDay: null };
+  
+    const bestDay = data.reduce((min, day) => (day.totalScreentime < min.totalScreentime ? day : min), data[0]);
+    const worstDay = data.reduce((max, day) => (day.totalScreentime > max.totalScreentime ? day : max), data[0]);
+  
+    const bestDayFormatted = dayjs(bestDay.date).format('Do MMM YYYY');
+    const worstDayFormatted = dayjs(worstDay.date).format('Do MMM YYYY');
+
+    return {
+      bestDay: { ...bestDay, formattedDate: bestDayFormatted },
+      worstDay: { ...worstDay, formattedDate: worstDayFormatted },
+    };
+  };
+
+  const getWeekData = (data) => {
+    const today = dayjs();
+  
+    // Define the start and end of the current week
+    const currentWeekStart = today.startOf('week');
+    const currentWeekEnd = today.endOf('week');
+  
+    // Define the start and end of the last week
+    const lastWeekStart = currentWeekStart.subtract(1, 'week');
+    const lastWeekEnd = currentWeekStart.subtract(1, 'day'); // Day before current week's start
+  
+    // Filter data for the current week
+    const currentWeekData = data.filter((entry) => {
+      const entryDate = dayjs(entry.date, 'DD-MM-YY'); // Parse custom date format
+      return entryDate.isBetween(currentWeekStart, currentWeekEnd, 'day', '[]');
+    });
+  
+    // Filter data for the last week
+    const lastWeekData = data.filter((entry) => {
+      const entryDate = dayjs(entry.date, 'DD-MM-YY'); // Parse custom date format
+      return entryDate.isBetween(lastWeekStart, lastWeekEnd, 'day', '[]');
+    });
+  
+    return { currentWeekData, lastWeekData };
+  };
+
+  const calculateAverageScreentime = (data) => {
+    if (!data || data.length === 0) return 0;
+  
+    const totalScreentime = data.reduce((total, day) => total + day.totalScreentime, 0);
+    const daysLogged = data.length;
+  
+    return Math.round(totalScreentime / daysLogged);
+  };
 
   const transformScreentimeData = (screentime) => {
     const { apps, totalScreentime, date } = screentime;
@@ -242,7 +354,7 @@ const AccountPage = () => {
   
       // Set the selected point index to the last data point by default
       setSelectedPointIndex(dataset.length - 1);
-  
+
       // Animate the chart data opacity back to full visibility
       Animated.timing(animatedOpacity, {
         toValue: 1,
@@ -252,11 +364,23 @@ const AccountPage = () => {
     });
   };  
 
-  const formatTime = (value) => {
-    const hours = Math.floor(value / 60);
-    const minutes = value % 60;
-    return `${hours}h ${minutes}m`;
-  };
+  const formatTime = (time) => {
+    const hours = Math.floor(time / 60);
+    const minutes = Math.floor(time % 60);
+
+    const days = Math.floor(hours / 24);
+    const remHours = Math.floor(hours % 24);
+
+    if(hours>0){
+      if(hours>=24){
+        return `${days}d ${remHours}h`;
+      }
+      return `${hours}h ${minutes}m`;
+    }
+    else{
+      return `${minutes}m`;
+    }
+  }
 
   const handleDataPointClick = (data) => {
     setSelectedPointIndex(data.index);
@@ -287,23 +411,26 @@ const AccountPage = () => {
   };
 
   const getStyleForGroup = (key) => {
+    const backgroundColor = animatedValues[key].interpolate({
+      inputRange: [0, 1],
+      outputRange: ['#fff', '#f5f4f4'],
+    });
+  
+    const scale = animatedValues[key].interpolate({
+      inputRange: [0, 1],
+      outputRange: [1, 1.1],
+    });
+  
+    const opacity = animatedValues[key].interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.8, 1],
+    });
+  
+    // Return style object without directly reading in render
     return {
-      backgroundColor: animatedValues[key].interpolate({
-        inputRange: [0, 1],
-        outputRange: ['#fff', '#f5f4f4'],
-      }),
-      transform: [
-        {
-          scale: animatedValues[key].interpolate({
-            inputRange: [0, 1],
-            outputRange: [1, 1.1],
-          }),
-        },
-      ],
-      opacity: animatedValues[key].interpolate({
-        inputRange: [0, 1],
-        outputRange: [0.8, 1],
-      }),
+      backgroundColor,
+      transform: [{ scale }],
+      opacity,
     };
   };
 
@@ -319,15 +446,34 @@ const AccountPage = () => {
     return monthNames[month - 1] || ''; // Convert 1-indexed month to 0-indexed
   };
 
+  const calculateProjectedScreentime = (dailyAverageMinutes, projectionYears) => {
+    const yearlyMinutes = dailyAverageMinutes * 365;
+    const totalMinutes = yearlyMinutes * projectionYears;
+  
+    const totalHours = Math.floor(totalMinutes / 60);
+    const totalDays = Math.floor(totalHours / 24);
+  
+    return { totalMinutes, totalHours, totalDays };
+  };
+  
+
   const updatedLabels = chartData.labels.map((label) => {
-    const [year, month] = label.split('-'); // Split 'YYYY-MM' into year and month
-    return `${getMonthName(parseInt(month, 10))}`; // Format as 'MonthName Year'
-  });
+    if (label.startsWith("Week")) {
+      return label; // Keep the week label as is
+    } else if (label.match(/^\d{4}-\d{2}$/)) {
+      const [year, month] = label.split('-'); // Split 'YYYY-MM' into year and month
+      return `${getMonthName(parseInt(month, 10))}`; // Format as 'MonthName'
+    } else if (label.match(/^\d{4}$/)) {
+      return label; // Return the 4-digit year as is
+    } else {
+      return label; // Fallback, keep other labels unchanged
+    }
+  });  
 
   return (
-    <KeyboardAvoidingView style={{width: '100%',flex:1,backgroundColor: '#f9fbfa',}}>
+    <KeyboardAvoidingView style={{width: '100%',flex:1,backgroundColor: '#f9fbfa',flex: 1,height: '100%'}}>
       <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',margin: 'auto',paddingTop: 10}}>
-        <View style={styles.header}>
+          <View style={styles.header}>
             <Pressable>
               <AntDesign name="user" size={30} color="black" />
             </Pressable>
@@ -353,93 +499,298 @@ const AccountPage = () => {
               textStyle={styles.dropdownText}
             />
       </View>
-      <ScrollView contentContainerStyle={styles.container} >
-      
-      <View style={styles.chartContainer}>
-        <View style={{display: 'flex',alignItems: 'flex-start',width: '100%',marginBottom: 20}}>
-          {selectedPointIndex !== null
-              ? 
-              <View style={{display: 'flex',flexDirection: 'column',width: '100%',justifyContent: 'space-between'}}>
-                <View style={{marginBottom: 10}}>
-                  <Text style={styles.chartHeader}>{chartData.ranges[selectedPointIndex]}</Text>
-                </View>
-                <View style={{marginTop: 10,display: 'flex',flexDirection: 'column'}}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.container} >
+        <View style={styles.chartContainer}>
+          <View style={{display: 'flex',alignItems: 'flex-start',width: '100%',marginBottom: 20}}>
+            {selectedPointIndex !== null
+                ? 
+                <View style={{display: 'flex',flexDirection: 'column',width: '100%',justifyContent: 'space-between'}}>
                   <View style={{marginBottom: 10}}>
-                    <Text style={[styles.chartHeader,{fontSize: 15,color: '#808080'}]}>Screen Time</Text>
+                    <Text style={styles.chartHeader}>{chartData.ranges[selectedPointIndex]}</Text>
                   </View>
-                  <Text style={[styles.chartHeader,{fontFamily: 'InterHeadingBold'}]}>{formatTime(chartData.data[selectedPointIndex])}</Text>
+                  <View style={{marginTop: 10,display: 'flex',flexDirection: 'column'}}>
+                    <View style={{marginBottom: 10}}>
+                      <Text style={[styles.chartHeader,{fontSize: 15,color: '#808080'}]}>Screen Time</Text>
+                    </View>
+                    <Text style={[styles.chartHeader,{fontFamily: 'InterHeadingBold'}]}>{formatTime(chartData.data[selectedPointIndex])}</Text>
+                  </View>
                 </View>
-              </View>
-              : chartData.labels.length
-              ? 
-              <View style={{display: 'flex',flexDirection: 'column',width: '100%',justifyContent: 'space-between'}}>
-                <View style={{marginBottom: 10}}>
-                  <Text style={styles.chartHeader}>{chartData.ranges[chartData.labels.length - 1]}</Text>
+                : chartData.labels.length
+                ? 
+                <View style={{display: 'flex',flexDirection: 'column',width: '100%',justifyContent: 'space-between'}}>
+                  <View style={{marginBottom: 10}}>
+                    <Text style={styles.chartHeader}>{chartData.ranges[chartData.labels.length - 1]}</Text>
+                  </View>
+                  <View style={{marginTop: 10}}>
+                    <Text style={styles.chartHeader}>{formatTime(chartData.data[chartData.data.length - 1])}</Text>
+                  </View>
                 </View>
-                <View style={{marginTop: 10}}>
-                  <Text style={styles.chartHeader}>{formatTime(chartData.data[chartData.data.length - 1])}</Text>
-                </View>
-              </View>
-              : 
-              <Text>No data available</Text>}
+                : 
+                <Text>No data available</Text>}
+          </View>
+          <Animated.View style={{ opacity: animatedOpacity }}>
+            <LineChart
+              data={{
+                labels: updatedLabels.length ? updatedLabels : ['No Data'], // Use updated month names
+                datasets: [{ data: chartData.data.length ? chartData.data : [0] }],
+              }}
+              width={Dimensions.get('window').width * 0.9 - 20} // Parent container's width 90% - padding*2
+              height={200}
+              chartConfig={{
+                backgroundColor: '#fff',
+                backgroundGradientFrom: '#fff',
+                backgroundGradientTo: '#fff',
+                decimalPlaces: 0,
+                color: (opacity) => `rgba(255, 163, 58, 0.6)`,
+                labelColor: (opacity) => `rgba(0, 0, 0, ${opacity})`,
+              }}
+              withDots={true} // Disable default dots
+              // bezier
+              renderDotContent={({ x, y, index }) => {
+                const isSelected = selectedPointIndex === index;
+              
+                return (
+                  <Animated.View
+                    key={index}
+                    style={{
+                      width: isSelected ? animatedValue : 8,
+                      height: isSelected ? animatedValue : 8,
+                      borderRadius: 6,
+                      backgroundColor: isSelected ? '#FF8801' : '#fff',
+                      borderWidth: isSelected ? 0 : 2,
+                      borderColor: 'rgba(255, 163, 58, 1)',
+                      position: 'absolute',
+                      left: x - 4,
+                      top: y - 4,
+                    }}
+                  />
+                );
+              }}
+              formatYLabel={formatTime}
+              segments={chartData.data.length}
+              onDataPointClick={handleDataPointClick}
+              style={styles.chart}
+            />
+          </Animated.View>
+          
+          <View style={styles.dateCategory}>
+            {['year', 'month', 'week'].map((key) => (
+              <Pressable style={{}} key={key} onPress={() => handlePress(key)}>
+                <Animated.View style={[styles.dateGroup, getStyleForGroup(key)]}>
+                  <Text style={{ fontFamily: 'InterHeadingRegular' }}>
+                    {key.charAt(0).toUpperCase() + key.slice(1)}ly
+                  </Text>
+                </Animated.View>
+              </Pressable>
+            ))}
+          </View>
         </View>
-        <Animated.View style={{ opacity: animatedOpacity }}>
-          <LineChart
-            data={{
-              labels: updatedLabels.length ? updatedLabels : ['No Data'], // Use updated month names
-              datasets: [{ data: chartData.data.length ? chartData.data : [0] }],
-            }}
-            width={Dimensions.get('window').width * 0.9 - 20} // Parent container's width 90% - padding*2
-            height={200}
-            chartConfig={{
-              backgroundColor: '#fff',
-              backgroundGradientFrom: '#fff',
-              backgroundGradientTo: '#fff',
-              decimalPlaces: 0,
-              color: (opacity) => `rgba(0, 241, 96, 0.6)`,
-              labelColor: (opacity) => `rgba(0, 0, 0, ${opacity})`,
-            }}
-            withDots={true} // Disable default dots
-            // bezier
-            renderDotContent={({ x, y, index }) => {
-              const isSelected = selectedPointIndex === index;
-            
-              return (
-                <Animated.View
-                  key={index}
-                  style={{
-                    width: isSelected ? animatedValue : 8,
-                    height: isSelected ? animatedValue : 8,
-                    borderRadius: 6,
-                    backgroundColor: isSelected ? '#00C950' : '#fff',
-                    borderWidth: isSelected ? 0 : 2,
-                    borderColor: 'rgba(0, 201, 80, 1)',
-                    position: 'absolute',
-                    left: x - 4,
-                    top: y - 4,
-                  }}
-                />
-              );
-            }}
-            formatYLabel={formatTime}
-            segments={chartData.data.length}
-            onDataPointClick={handleDataPointClick}
-            style={styles.chart}
-          />
-        </Animated.View>
-        
-        <View style={styles.dateCategory}>
-          {['year', 'month', 'week'].map((key) => (
-            <Pressable style={{}} key={key} onPress={() => handlePress(key)}>
-              <Animated.View style={[styles.dateGroup, getStyleForGroup(key)]}>
-                <Text style={{ fontFamily: 'InterHeadingRegular' }}>
-                  {key.charAt(0).toUpperCase() + key.slice(1)}ly
-                </Text>
-              </Animated.View>
-            </Pressable>
-          ))}
-        </View>
-      </View>
+        {
+          insights.length
+          ?
+          <View style={{marginTop: 20}}>
+            <Carousel
+                loop
+                width={width*0.9}
+                height={width}
+                autoPlay={true}
+                data={[...new Array(3).keys()]}
+                scrollAnimationDuration={2000}
+                onSnapToItem={(index) => {}}
+                renderItem={({ index }) => (
+                    <View
+                        style={{
+                            flex: 1,
+                            borderWidth: 1,
+                            justifyContent: 'center',
+                            backgroundColor: '#fff',
+                            borderRadius: 10,
+                            borderWidth: 0,
+                            // iOS shadow
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: 5 },
+                            shadowOpacity: 0.1,
+                            shadowRadius: 5,
+                            // Android shadow
+                            elevation: 5,
+                            margin: 10,
+                            borderRadius: 10
+                            
+                        }}
+                    >
+                        {
+                          index==0
+                          ?
+                          <View style={{display: 'flex',justifyContent: 'space-between',alignItems: 'center',height: '100%',borderTopWidth: 4,borderTopColor:'#FF4141',borderRadius: 10}}>
+                            <View style={{isplay: 'flex',justifyContent: 'center',alignItems: 'center',width: '100%',padding: 20}}>
+                              <AntDesign name="exclamationcircle" size={30} color="#FF4141" style={{marginBottom: 20}}/>
+                              <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
+                                In the next 5 years, you will spend
+                              </Text>
+                              <Text style={[styles.stats,{color: 'red'}]}>
+                                {insights[index]?.fiveYearDays} DAYS
+                              </Text>
+                              <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
+                                on your phone.
+                              </Text>
+                            </View>
+                            <Svg height={height} width="100%" style={{}}>
+                              <Defs>
+                                <LinearGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
+                                  <Stop offset="0%" stopColor="#FF4141" stopOpacity="1" />
+                                  <Stop offset="100%" stopColor="#FF4141" stopOpacity="0" />
+                                </LinearGradient>
+                              </Defs>
+                              <Path
+                                d={createSinePath()}
+                                fill="url(#waveGradient)"
+                                stroke="transparent"
+                              />
+                            </Svg>
+                          </View>
+                          : 
+                          (
+                            index==1
+                            ?
+                            (
+                              insights[index]?.percentageChange>0
+                                  ?
+                                <View style={{display: 'flex',justifyContent: 'space-between',alignItems: 'center',borderTopWidth: 4,borderTopColor:'#00C950',borderRadius: 10,height: '100%'}}>
+                                  <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '100%',padding: 20,}}>
+                                      <AntDesign name="checkcircle" size={30} color="#00C950" style={{marginBottom: 20}}/>
+                                      <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
+                                        Your screen time this week
+                                      </Text>
+                                      <Text style={[styles.stats,{color: '#15803D'}]}>
+                                        {insights[index]?.percentageChange}% LOWER
+                                      </Text>
+                                      <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
+                                        than last week.
+                                      </Text>
+                                    </View>
+                                    <Svg height={height} width="100%" style={{}}>
+                                      <Defs>
+                                        <LinearGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
+                                          <Stop offset="0%" stopColor="#00C950" stopOpacity="1" />
+                                          <Stop offset="100%" stopColor="#00C950" stopOpacity="0" />
+                                        </LinearGradient>
+                                      </Defs>
+                                      <Path
+                                        d={createSinePath()}
+                                        fill="url(#waveGradient)"
+                                        stroke="transparent"
+                                      />
+                                    </Svg>
+                                </View>
+                                :
+                                (
+                                  insights[index]?.percentageChange<0
+                                  ?
+                                  <View style={{display: 'flex',justifyContent: 'space-between',alignItems: 'center',borderTopWidth: 4,borderTopColor:'red',borderRadius: 10,height: '100%'}}>
+                                    <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '100%',padding: 20,}}>
+                                        <AntDesign name="exclamationcircle" size={30} color="red" style={{marginBottom: 20}}/>
+                                        <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
+                                          Your screen time this week
+                                        </Text>
+                                        <Text style={[styles.stats,{color: 'red'}]}>
+                                          {insights[index]?.percentageChange}% HIGHER
+                                        </Text>
+                                        <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
+                                          than last week.
+                                        </Text>
+                                      </View>
+                                      <Svg height={height} width="100%" style={{}}>
+                                        <Defs>
+                                          <LinearGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
+                                            <Stop offset="0%" stopColor="red" stopOpacity="1" />
+                                            <Stop offset="100%" stopColor="red" stopOpacity="0" />
+                                          </LinearGradient>
+                                        </Defs>
+                                        <Path
+                                          d={createSinePath()}
+                                          fill="url(#waveGradient)"
+                                          stroke="transparent"
+                                        />
+                                      </Svg>
+                                  </View>
+                                  :
+                                  <View style={{display: 'flex',justifyContent: 'space-between',alignItems: 'center',borderTopWidth: 4,borderTopColor:'#404040',borderRadius: 10,height: '100%'}}>
+                                    <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '100%',padding: 20,}}>
+                                        <AntDesign name="checkcircle" size={30} color="#404040" style={{marginBottom: 20}}/>
+                                        <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
+                                          Your screen time this week
+                                        </Text>
+                                        <Text style={styles.stats}>
+                                          {insights[index]?.percentageChange}% HIGHER
+                                        </Text>
+                                        <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
+                                          than last week.
+                                        </Text>
+                                      </View>
+                                      <Svg height={height} width="100%" style={{}}>
+                                        <Defs>
+                                          <LinearGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
+                                            <Stop offset="0%" stopColor="#404040" stopOpacity="1" />
+                                            <Stop offset="100%" stopColor="#404040" stopOpacity="0" />
+                                          </LinearGradient>
+                                        </Defs>
+                                        <Path
+                                          d={createSinePath()}
+                                          fill="url(#waveGradient)"
+                                          stroke="transparent"
+                                        />
+                                      </Svg>
+                                  </View>
+                                )
+                            )
+                            :
+                            <View style={{display: 'flex',justifyContent: 'space-around',alignItems: 'center',borderRadius: 10,height: '100%',padding: 15}}>
+                                <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadingRegular',fontSize: 18}]}>Screen Time Analysis</Text>
+                                <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '90%',paddingVertical: 10,backgroundColor: '#F0FDF4',borderRadius: 10,shadowColor: '#000',
+                                  shadowOffset: { width: 0, height: 5 },
+                                  shadowOpacity: 0.1,
+                                  shadowRadius: 5,
+                                  // Android shadow
+                                  elevation: 5,}}>
+                                    <View style={{display: 'flex',flexDirection: 'row',alignItems: 'center',justifyContent: 'center',marginVertical: 5}}>
+                                      <Text style={{fontFamily: 'InterHeadingRegular',color: '#404040' }}>Your Best Day</Text>
+                                      <MaterialIcons name="sunny" size={24} color="orange"  style={{marginLeft: 10}}/>
+                                    </View>
+                                    <View style={{marginVertical: 5}}>
+                                      <Text style={[styles.message,{color: '#15803D',fontSize: 18,marginBottom: 0}]}>{insights[index]?.bestDay.formattedDate}</Text>
+                                    </View>
+                                    <View style={{marginVertical: 5}}>
+                                      <Text style={[styles.message,{color: '#16A34A',fontSize: 25,marginBottom: 0}]}>{Math.floor(insights[index]?.bestDay.totalScreentime / 60)}h {insights[index]?.bestDay.totalScreentime % 60}m</Text>
+                                    </View>
+                                </View>
+                                <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '90%',paddingVertical: 10,backgroundColor: '#FEF2F2',borderRadius: 10,shadowColor: '#000',
+                                  shadowOffset: { width: 0, height: 5 },
+                                  shadowOpacity: 0.1,
+                                  shadowRadius: 5,
+                                  // Android shadow
+                                  elevation: 5,
+                                  }}>
+                                    <View style={{display: 'flex',flexDirection: 'row',alignItems: 'center',justifyContent: 'center',marginVertical: 5}}>
+                                      <Text style={{fontFamily: 'InterHeadingRegular',color: '#404040' }}>Your Worst Day</Text>
+                                      <AntDesign name="exclamationcircle" size={20} color="red" style={{marginLeft: 10}}/>
+                                    </View>
+                                    <View style={{marginVertical: 5}}>
+                                      <Text style={[styles.message,{color: '#B91C1C',fontSize: 18,marginBottom: 0}]}>{insights[index]?.worstDay.formattedDate}</Text>
+                                    </View>
+                                    <View style={{marginVertical: 5}}>
+                                      <Text style={[styles.message,{color: '#DC2626',fontSize: 25,marginBottom: 0}]}>{Math.floor(insights[index]?.worstDay.totalScreentime / 60)}h {insights[index]?.bestDay.totalScreentime % 60}m</Text>
+                                    </View>
+                                </View>
+                              </View>
+                          )
+                        }
+                    </View>
+                )}
+            />
+          </View>
+          :
+          null
+        }
       </ScrollView>
     </KeyboardAvoidingView>
   )
@@ -453,8 +804,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     margin: 'auto',
     flexDirection: 'column',
-    height: '100%',
-    width: '100%'
+    width: '100%',
+    paddingBottom: 100,
   },
   header: {
     display: 'flex',
@@ -525,7 +876,7 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     marginTop: 15,
     padding: 10,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#f5f4f4',
 
     // iOS shadow
@@ -535,6 +886,8 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     // Android shadow
     elevation: 5,
+    
+    minHeight: 250
   },
   dropdownText: {
     fontSize: 14,
@@ -566,5 +919,19 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     // Android shadow
     elevation: 5,
-  }
+  },
+  message: {
+    fontSize: 17,
+    color: '#777777',
+    fontFamily: 'InterHeadingSemiBold',
+    marginBottom: 10,
+    textAlign: 'center'
+  },
+  stats: {
+    fontSize: 35,
+    color: '#000',
+    fontFamily: 'InterHeadingBold',
+    marginBottom: 10,
+    textAlign: 'center'
+  },
 })
