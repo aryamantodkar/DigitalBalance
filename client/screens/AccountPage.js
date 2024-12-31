@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { StyleSheet, Text, View, Dimensions, Pressable,Image, Animated, KeyboardAvoidingView, ScrollView } from 'react-native';
-import { LineChart } from 'react-native-chart-kit';
+import { LineChart, BarChart } from 'react-native-chart-kit';
 import DropDownPicker from 'react-native-dropdown-picker';
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
@@ -82,7 +82,6 @@ const AccountPage = () => {
         });
       });
 
-      // Convert the Map values to an array and format them for the dropdown
       const formattedApps = Array.from(appsMap.values()).map((app) => {
         return {
           label: app.label,
@@ -99,8 +98,8 @@ const AccountPage = () => {
       });
 
       const insights = generateInsights(transformedData);
-      setInsights(insights);
 
+      setInsights(insights);
       setAvailableApps(formattedApps);
 
       updateChartData(transformedData, groupBy, selectedApp);
@@ -118,6 +117,31 @@ const AccountPage = () => {
       fetchData(); // Refresh data when the screen is focused
     }, [])
   );
+
+  const aggregateScreentimeData = (screentimeArray) => {
+    const appUsageMap = {};
+  
+    screentimeArray.forEach((screentime) => {
+      screentime.apps.forEach((app) => {
+        if (appUsageMap[app.name]) {
+          appUsageMap[app.name].usageMinutes += app.totalMinutes;
+        } else {
+          appUsageMap[app.name] = {
+            usageMinutes: app.totalMinutes,
+            appIconUrl: app.appIconUrl, // Store the appIconUrl
+          };
+        }
+      });
+    });
+  
+    const aggregatedData = Object.entries(appUsageMap).map(([name, { usageMinutes, appIconUrl }]) => ({
+      name,
+      usageMinutes,
+      appIconUrl,
+    }));
+  
+    return aggregatedData;
+  };  
 
   const generateInsights = (data) => {
     const avgDaily = calculateAverageScreentime(data);
@@ -147,6 +171,7 @@ const AccountPage = () => {
   };
 
   const calculatePercentageChange = (currentPeriod, previousPeriod) => {
+    
     const currentTotal = currentPeriod.reduce((total, day) => total + day.totalScreentime, 0);
     const previousTotal = previousPeriod.reduce((total, day) => total + day.totalScreentime, 0);
   
@@ -336,7 +361,6 @@ const AccountPage = () => {
     return sortedGroupedData;
   };
   
-  
   const updateChartData = (data, groupBy, selectedApp) => {
     Animated.timing(animatedOpacity, {
       toValue: 0,
@@ -455,7 +479,6 @@ const AccountPage = () => {
   
     return { totalMinutes, totalHours, totalDays };
   };
-  
 
   const updatedLabels = chartData.labels.map((label) => {
     if (label.startsWith("Week")) {
@@ -472,32 +495,129 @@ const AccountPage = () => {
 
   return (
     <KeyboardAvoidingView style={{width: '100%',flex:1,backgroundColor: '#f9fbfa',flex: 1,height: '100%'}}>
-      <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',margin: 'auto',paddingTop: 10}}>
-          <View style={styles.header}>
-            <Pressable>
-              <AntDesign name="user" size={30} color="black" />
-            </Pressable>
-            <View style={{display: 'flex',flexDirection: 'row'}}>
-              <Pressable style={{marginRight: 15}} onPress={handleLogout}>
-                <MaterialIcons name="logout" size={30} color="black" />
-              </Pressable>
+          <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',margin: 'auto',paddingTop: 10,width: '100%'}}>
+            <View style={{display: 'flex',flexDirection: 'row',justifyContent: 'space-between',width: '90%',paddingHorizontal: 5}}>
               <Pressable>
-                <Ionicons name="settings" size={30} color="black" />
+                <Ionicons name="settings" size={25} color="black" />
+              </Pressable>
+              <Pressable onPress={handleLogout}>
+                <MaterialIcons name="logout" size={25} color="black" />
               </Pressable>
             </View>
+            <View style={styles.header}>
+              <View style={{ 
+              flexDirection: 'row', 
+              alignItems: 'center', 
+              padding: 15, 
+              height: 130, 
+              width: '100%', 
+            }}>
+              {/* Profile Picture Section */}
+              <Pressable 
+                style={{ 
+                  width: '35%', 
+                  justifyContent: 'center', 
+                  alignItems: 'center' ,
+                  // iOS shadow
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 5 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 5,
+                  // Android shadow
+                  elevation: 5,
+                }}
+              >
+                <Image
+                  source={{ uri: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT4CtMpBDpj9ZrS106hAnAagEFIqo2DesVmXQ&s' }}
+                  style={{ 
+                    width: 90, 
+                    height: 90, 
+                    borderRadius: 45, 
+                    borderWidth: 2, 
+                    borderColor: '#E5E7EB' // Light border for emphasis
+                  }}
+                  resizeMode="cover"
+                />
+              </Pressable>
+              
+              {/* Text and Button Section */}
+              <View 
+                style={{ 
+                  flex: 1, 
+                  justifyContent: 'space-between', 
+                  height: '100%', 
+                  paddingLeft: 16 
+                }}
+              >
+                {/* User Name */}
+                <Text 
+                  style={{ 
+                    fontFamily: 'InterHeadingBold', 
+                    fontSize: 20, 
+                    color: '#1F2937' // Dark grey for readability 
+                  }}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  Aryaman Todkar
+                </Text>
+                
+                {/* Followers & Following */}
+                <Text 
+                  style={{ 
+                    fontFamily: 'InterHeadingRegular', 
+                    fontSize: 14, 
+                    color: '#4B5563' // Medium grey for secondary text 
+                  }}
+                >
+                  <Text style={{ fontFamily: 'InterHeadingBold', color: '#111827' }}>13</Text> Followers | 
+                  <Text style={{ fontFamily: 'InterHeadingBold', color: '#111827' }}> 12</Text> Following
+                </Text>
+                
+                {/* Follow Button */}
+                <Pressable 
+                  style={{ 
+                    backgroundColor: '#10B981', // Calming green to signify positive action
+                    paddingVertical: 8, 
+                    paddingHorizontal: 16, 
+                    borderRadius: 6, 
+                    alignSelf: 'flex-start', // Button will adjust to its content
+                    // iOS shadow
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 5 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 5,
+                    // Android shadow
+                    elevation: 5,
+                  }}
+                >
+                  <Text 
+                    style={{ 
+                      color: '#FFFFFF', 
+                      fontSize: 14, 
+                      fontWeight: '600' 
+                    }}
+                  >
+                    Follow
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
           </View>
-          <DropDownPicker
-              open={open}
-              value={selectedApp}
-              items={availableApps}
-              setOpen={setOpen}
-              setValue={setSelectedApp}
-              setItems={setAvailableApps}
-              placeholder="Select an App"
-              dropDownContainerStyle={styles.dropdownContainer}
-              style={styles.dropdown}
-              textStyle={styles.dropdownText}
-            />
+          <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',margin: 'auto'}}>
+            <DropDownPicker
+                open={open}
+                value={selectedApp}
+                items={availableApps}
+                setOpen={setOpen}
+                setValue={setSelectedApp}
+                setItems={setAvailableApps}
+                placeholder="Select an App"
+                dropDownContainerStyle={styles.dropdownContainer}
+                style={styles.dropdown}
+                textStyle={styles.dropdownText}
+              />
+          </View>
       </View>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.container} >
         <View style={styles.chartContainer}>
@@ -506,23 +626,23 @@ const AccountPage = () => {
                 ? 
                 <View style={{display: 'flex',flexDirection: 'column',width: '100%',justifyContent: 'space-between'}}>
                   <View style={{marginBottom: 10}}>
-                    <Text style={styles.chartHeader}>{chartData.ranges[selectedPointIndex]}</Text>
+                    <Text style={[styles.chartHeader,{color: '#000'}]}>{chartData.ranges[selectedPointIndex]}</Text>
                   </View>
                   <View style={{marginTop: 10,display: 'flex',flexDirection: 'column'}}>
                     <View style={{marginBottom: 10}}>
                       <Text style={[styles.chartHeader,{fontSize: 15,color: '#808080'}]}>Screen Time</Text>
                     </View>
-                    <Text style={[styles.chartHeader,{fontFamily: 'InterHeadingBold'}]}>{formatTime(chartData.data[selectedPointIndex])}</Text>
+                    <Text style={[styles.chartHeader,{fontFamily: 'InterHeadingBold',color: '#000'}]}>{formatTime(chartData.data[selectedPointIndex])}</Text>
                   </View>
                 </View>
                 : chartData.labels.length
                 ? 
                 <View style={{display: 'flex',flexDirection: 'column',width: '100%',justifyContent: 'space-between'}}>
                   <View style={{marginBottom: 10}}>
-                    <Text style={styles.chartHeader}>{chartData.ranges[chartData.labels.length - 1]}</Text>
+                    <Text style={[styles.chartHeader,{color: '#000'}]}>{chartData.ranges[chartData.labels.length - 1]}</Text>
                   </View>
                   <View style={{marginTop: 10}}>
-                    <Text style={styles.chartHeader}>{formatTime(chartData.data[chartData.data.length - 1])}</Text>
+                    <Text style={[styles.chartHeader,{color: '#000'}]}>{formatTime(chartData.data[chartData.data.length - 1])}</Text>
                   </View>
                 </View>
                 : 
@@ -541,7 +661,7 @@ const AccountPage = () => {
                 backgroundGradientFrom: '#fff',
                 backgroundGradientTo: '#fff',
                 decimalPlaces: 0,
-                color: (opacity) => `rgba(255, 163, 58, 0.6)`,
+                color: (opacity) => `rgba(232, 124, 0, 0.7)`,
                 labelColor: (opacity) => `rgba(0, 0, 0, ${opacity})`,
               }}
               withDots={true} // Disable default dots
@@ -588,7 +708,7 @@ const AccountPage = () => {
         {
           insights.length
           ?
-          <View style={{marginTop: 20}}>
+          <View style={{marginTop: 20,display: 'flex',height: width}}>
             <Carousel
                 loop
                 width={width*0.9}
@@ -614,7 +734,7 @@ const AccountPage = () => {
                             // Android shadow
                             elevation: 5,
                             margin: 10,
-                            borderRadius: 10
+                            borderRadius: 10,
                             
                         }}
                     >
@@ -653,7 +773,7 @@ const AccountPage = () => {
                             index==1
                             ?
                             (
-                              insights[index]?.percentageChange>0
+                              insights[index]?.percentageChange<0
                                   ?
                                 <View style={{display: 'flex',justifyContent: 'space-between',alignItems: 'center',borderTopWidth: 4,borderTopColor:'#00C950',borderRadius: 10,height: '100%'}}>
                                   <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '100%',padding: 20,}}>
@@ -684,7 +804,7 @@ const AccountPage = () => {
                                 </View>
                                 :
                                 (
-                                  insights[index]?.percentageChange<0
+                                  insights[index]?.percentageChange>0
                                   ?
                                   <View style={{display: 'flex',justifyContent: 'space-between',alignItems: 'center',borderTopWidth: 4,borderTopColor:'red',borderRadius: 10,height: '100%'}}>
                                     <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '100%',padding: 20,}}>
@@ -789,7 +909,7 @@ const AccountPage = () => {
             />
           </View>
           :
-          null
+          <View></View>
         }
       </ScrollView>
     </KeyboardAvoidingView>
@@ -887,7 +1007,7 @@ const styles = StyleSheet.create({
     // Android shadow
     elevation: 5,
     
-    minHeight: 250
+    minHeight: 250,
   },
   dropdownText: {
     fontSize: 14,
@@ -933,5 +1053,21 @@ const styles = StyleSheet.create({
     fontFamily: 'InterHeadingBold',
     marginBottom: 10,
     textAlign: 'center'
+  },
+  legendContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginTop: 10,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 10,
+    marginVertical: 5,
+  },
+  legendText: {
+    fontSize: 14,
+    color: '#333',
   },
 })
