@@ -33,12 +33,19 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const response = await axios.post(`${BASE_URL}/api/auth/login`, { email, password });
-      const { id, token, refreshToken } = response.data;
+      const { id, token, refreshToken, profilePicture, followers, following } = response.data;
 
       await storeTokens(token, refreshToken);
       const decodedUser = jwtDecode(token);
 
-      setUser({ id: decodedUser.id, email: decodedUser.email, token });
+      setUser({
+        id: decodedUser.id,
+        email: decodedUser.email,
+        token,
+        profilePicture,
+        followers,
+        following,
+      });
       return true;
     } catch (error) {
       console.error('Login failed:', error.response?.data?.message || error.message);
@@ -47,9 +54,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Register
-  const register = async (name, email, password) => {
+  const register = async (name, email, password, profilePicture = '') => {
     try {
-      const response = await axios.post(`${BASE_URL}/api/auth/register`, { name, email, password });
+      const response = await axios.post(`${BASE_URL}/api/auth/register`, {
+        name,
+        email,
+        password,
+        profilePicture,
+      });
       setMessage(response.data.message);
     } catch (error) {
       setMessage(error.response?.data?.message || 'Registration failed');
@@ -93,10 +105,18 @@ export const AuthProvider = ({ children }) => {
         await AsyncStorage.setItem('userToken', accessToken);
 
         const refreshedUser = jwtDecode(accessToken);
-        setUser({ id: refreshedUser.id, email: refreshedUser.email, token: accessToken });
+        setUser({
+          id: refreshedUser.id,
+          email: refreshedUser.email,
+          token: accessToken,
+        });
       } else {
         // Token is valid
-        setUser({ id: decodedToken.id, email: decodedToken.email, token });
+        setUser({
+          id: decodedToken.id,
+          email: decodedToken.email,
+          token,
+        });
       }
     } catch (error) {
       console.error('Error during login check:', error.message);

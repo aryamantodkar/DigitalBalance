@@ -23,6 +23,7 @@
     "expo": "~52.0.20",
     "expo-blur": "^14.0.1",
     "expo-font": "^13.0.2",
+    "expo-linear-gradient": "^14.0.1",
     "expo-status-bar": "~2.0.0",
     "jwt-decode": "^4.0.0",
     "lucide-react-native": "^0.468.0",
