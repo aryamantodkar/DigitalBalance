@@ -55,8 +55,6 @@ const HomePage = () => {
       const transformedData = records.map(transformScreentimeData);
       const todaysData = getTodaysData(transformedData);
       setTodaysData(todaysData);
-
-      console.log("today",todaysData)
     } catch (error) {
       console.error('Error fetching screentime:', error.message);
     }

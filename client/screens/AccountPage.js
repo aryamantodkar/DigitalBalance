@@ -18,11 +18,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import isBetween from 'dayjs/plugin/isBetween';
 import Carousel from 'react-native-reanimated-carousel';
 import Svg, { Path, LinearGradient, Stop, Defs } from 'react-native-svg';
+import utc from 'dayjs/plugin/utc';
 
 const AccountPage = () => {
   dayjs.extend(isBetween);
   dayjs.extend(advancedFormat);
   dayjs.extend(isoWeek);
+  dayjs.extend(utc);
 
   const { logout } = useAuth();
   const navigation = useNavigation();
@@ -263,100 +265,87 @@ const AccountPage = () => {
       week: (date) => {
         const weekStart = dayjs(date).startOf('week');
         const weekEnd = weekStart.endOf('week');
-      
-        // Check if the week belongs to the current month
-        const isCurrentMonth = weekStart.month() === currentDate.month();
-        if (!isCurrentMonth) return null; // Skip weeks that aren't in the current month
-      
-        // If the start and end month are different, display both months with full names
+  
+        // Create a readable label for the week, regardless of the month
         const weekStartMonth = weekStart.format('MMMM');
         const weekEndMonth = weekEnd.format('MMMM');
-    
-        let weekRange = `${weekStart.format('MMMM D')} - ${weekEnd.format('D')}`;
-        if (weekStartMonth !== weekEndMonth) {
-          weekRange = `${weekStart.format('MMMM D')} - ${weekEnd.format('MMMM D')}`;
-        }
-    
+        const weekRange =
+          weekStartMonth === weekEndMonth
+            ? `${weekStart.format('MMMM D')} - ${weekEnd.format('D')}`
+            : `${weekStart.format('MMMM D')} - ${weekEnd.format('MMMM D')}`;
+  
         return {
-          weekLabel: `Week ${Math.ceil(dayjs(date).date() / 7)}`,
-          weekStart: weekStart.format('MMMM D'),
-          weekEnd: weekEnd.format('D'),
+          weekLabel: `Week ${Math.ceil(weekStart.date() / 7)}`,
           weekRange,
-          weekStartDate: weekStart, // Add start date for sorting
+          weekStartDate: weekStart,
         };
       },
       month: (date) => {
-        // Return month as a number (0-11) and year for sorting, adjust to 1-indexed month
-        return [dayjs(date).year(), dayjs(date).month() + 1]; // Adjust month by adding 1
+        const month = dayjs(date).month(); // 0-based month index
+        const year = dayjs(date).year();
+        return { year, month };
       },
       year: (date) => {
-        return dayjs(date).year(); // Group by year for all available years in the data
+        return dayjs(date).year();
       },
     };
   
-    // Group the data based on the selected grouping strategy (week, month, year)
     const groupedData = data.reduce((acc, item) => {
       const group = groupingStrategies[groupBy](item.date);
   
-      if (!group) return acc; // Skip data that doesn't fit the selected grouping strategy
+      if (!group) return acc; // Skip if grouping is not valid
   
       const { weekLabel, weekRange, weekStartDate } = group;
-    
-      // For "week" and "month" grouping, use the same weekLabel for simplicity
-      const label = groupBy === 'week' ? weekLabel : groupBy === 'month' ? `${group[0]}-${group[1]}` : group;
-    
-      if (!acc[label]) acc[label] = { screentime: 0, range: weekRange || group };
-    
+  
+      // Determine label based on grouping strategy
+      let label;
+      if (groupBy === 'week') {
+        label = weekLabel;
+      } else if (groupBy === 'month') {
+        label = `${group.year}-${group.month + 1}`; // Adjust month to 1-based
+      } else {
+        label = group;
+      }
+  
+      if (!acc[label]) acc[label] = { screentime: 0, range: weekRange || label };
+  
+      // Add screentime data
       if (selectedApp === 'All Apps') {
         acc[label].screentime += item.totalScreentime;
       } else {
         const appScreentime = item.apps.find((app) => app.name === selectedApp);
         if (appScreentime) acc[label].screentime += appScreentime.totalMinutes;
       }
-    
-      acc[label].range = weekRange || group;
-    
-      // Store the start date for sorting the data by date in ascending order
+  
       if (weekStartDate) acc[label].weekStartDate = weekStartDate;
-    
+  
       return acc;
     }, {});
   
-    // Sort the data based on the start date for week or month groupings
+    // Sort and format grouped data
     const sortedGroupedData = Object.keys(groupedData)
-  .sort((a, b) => {
-    let aDate, bDate;
-  
-    // Parse date for months and years
-    if (groupBy === 'month') {
-      const aMonth = groupedData[a].range[1]; // Month number (e.g., 12 for December)
-      const bMonth = groupedData[b].range[1]; // Month number (e.g., 11 for November)
-      const aYear = groupedData[a].range[0]; // Year (e.g., 2024)
-      const bYear = groupedData[b].range[0]; // Year (e.g., 2024)
-
-      // Create date objects properly with the correct month and year
-      aDate = dayjs(`${aYear}-${aMonth}-01`, 'YYYY-MM-DD').month(aMonth); // Adjust for 0-indexed months
-      bDate = dayjs(`${bYear}-${bMonth}-01`, 'YYYY-MM-DD').month(bMonth);
-    } else {
-      // Sort weeks and years normally (if needed)
-      aDate = groupedData[a].weekStartDate || dayjs(a, 'MMMM');
-      bDate = groupedData[b].weekStartDate || dayjs(b, 'MMMM');
-    }
-  
-    // Sort by ascending order to show the latest month/week on the right
-    return aDate.isBefore(bDate) ? -1 : 1;
-  })
-  .reduce((acc, label) => {
-    // After sorting, convert month numbers to month names
-    if (groupBy === 'month') {
-      const monthIndex = groupedData[label].range[1]; // Convert to 0-based index
-      const monthName = dayjs().month(monthIndex-1).format('MMMM'); // Get the full month name
-      groupedData[label].range = monthName + ' ' + groupedData[label].range[0]; // e.g., "December 2024"
-    }
+    .sort((a, b) => {
+      let aDate, bDate;
     
-    acc[label] = groupedData[label];
-    return acc;
-  }, {});
+      if (groupBy === 'month') {
+        const [aYear, aMonth] = a.split('-');
+        const [bYear, bMonth] = b.split('-');
+        
+        // Create the dayjs object for proper UTC comparison
+        aDate = dayjs.utc(`${aYear}-${aMonth.padStart(2, '0')}-01`, 'YYYY-MM-DD'); // Ensure a valid date format with day
+        bDate = dayjs.utc(`${bYear}-${bMonth.padStart(2, '0')}-01`, 'YYYY-MM-DD');
+    
+      } else {
+        aDate = groupedData[a].weekStartDate || dayjs(a, 'MMMM');
+        bDate = groupedData[b].weekStartDate || dayjs(b, 'MMMM');
+      }
+    
+      return aDate.isBefore(bDate) ? -1 : 1;
+    })
+    .reduce((acc, label) => {
+      acc[label] = groupedData[label];
+      return acc;
+    }, {});
   
     return sortedGroupedData;
   };
@@ -372,9 +361,23 @@ const AccountPage = () => {
       const labels = Object.keys(groupedData).sort();
       const dataset = labels.map((label) => groupedData[label].screentime);
       const ranges = labels.map((label) => groupedData[label].range);
-  
-      // Update chart data state
-      setChartData({ labels, data: dataset, ranges });
+
+      if(groupBy=='month'){
+        const monthLabels = labels.map((label) => {
+          const [year, monthIndex] = label.split('-'); // Split the year and month
+          return dayjs.utc(`${year}-${monthIndex.padStart(2, '0')}`).format('MMM YY'); // Format as "Nov 2024"
+        });
+
+        const monthRanges = labels.map((label) => {
+          const [year, monthIndex] = label.split('-'); // Split the year and month
+          return dayjs.utc(`${year}-${monthIndex.padStart(2, '0')}`).format('MMMM YYYY'); // Format as "Nov 2024"
+        });
+
+        setChartData({ labels: monthLabels, data: dataset, ranges: monthRanges });
+      }
+      else{
+        setChartData({ labels, data: dataset, ranges });
+      }
   
       // Set the selected point index to the last data point by default
       setSelectedPointIndex(dataset.length - 1);

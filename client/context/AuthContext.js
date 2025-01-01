@@ -1,118 +1,181 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import {jwtDecode} from 'jwt-decode'; // Fix import
 
 export const AuthContext = createContext();
+
+const BASE_URL = 'http://192.168.1.8:5000'; // Replace with your server IP
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState(''); // To show success or error message
+  const [message, setMessage] = useState('');
 
-  const baseURL = 'http://192.168.1.8:5000'; // Replace with your server IP
-  
+  // Helper functions for token storage/retrieval
+  const storeTokens = async (token, refreshToken) => {
+    await AsyncStorage.multiSet([
+      ['userToken', token],
+      ['refreshToken', refreshToken],
+    ]);
+  };
+
+  const getStoredTokens = async () => {
+    const [token, refreshToken] = await AsyncStorage.multiGet(['userToken', 'refreshToken']);
+    return { token: token[1], refreshToken: refreshToken[1] };
+  };
+
+  const clearTokens = async () => {
+    await AsyncStorage.multiRemove(['userToken', 'refreshToken']);
+  };
+
+  // Login
   const login = async (email, password) => {
     try {
-        const response = await axios.post(`${baseURL}/api/auth/login`, { email, password });
-        const { id, token } = response.data;
+      const response = await axios.post(`${BASE_URL}/api/auth/login`, { email, password });
+      const { id, token, refreshToken } = response.data;
 
-        await AsyncStorage.setItem('userToken', token);
-        setUser({ id, email, token });
+      await storeTokens(token, refreshToken);
+      const decodedUser = jwtDecode(token);
 
-        return true; // Login successful
+      setUser({ id: decodedUser.id, email: decodedUser.email, token });
+      return true;
     } catch (error) {
-        console.error('Login failed:', error.response?.data?.message || error.message);
-        return false; // Login failed
+      console.error('Login failed:', error.response?.data?.message || error.message);
+      return false;
     }
   };
 
+  // Register
   const register = async (name, email, password) => {
     try {
-      const response = await axios.post(`${baseURL}/api/auth/register`, { name, email, password });
-      setMessage(response.data.message); // Set success message
+      const response = await axios.post(`${BASE_URL}/api/auth/register`, { name, email, password });
+      setMessage(response.data.message);
     } catch (error) {
-      setMessage(error.response?.data?.message || 'Registration failed'); // Set error message
-      console.error('Registration failed:', error.response?.data?.message || error.message);
+      setMessage(error.response?.data?.message || 'Registration failed');
+      console.error('Registration failed:', error.message);
     }
   };
 
-  const logout = async (navigation) => {
+  // Logout
+  const logout = async () => {
     try {
-      // Clear AsyncStorage and user data
-      await AsyncStorage.removeItem('userToken');
+      await clearTokens();
       setUser(null);
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error('Logout failed:', error.message);
     }
   };
 
+  // Check Login and Refresh Token
   const isLoggedIn = async () => {
     try {
-      const token = await AsyncStorage.getItem('userToken');
-      if (token) {
-        setUser({ token });
+      const { token, refreshToken } = await getStoredTokens();
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      const decodedToken = jwtDecode(token);
+
+      if (Date.now() >= decodedToken.exp * 1000) {
+        // Token expired, refresh it
+        if (!refreshToken) {
+          setLoading(false);
+          return;
+        }
+
+        const refreshResponse = await axios.post(`${BASE_URL}/api/auth/refresh-token`, {
+          token: refreshToken,
+        });
+
+        const { accessToken } = refreshResponse.data;
+        await AsyncStorage.setItem('userToken', accessToken);
+
+        const refreshedUser = jwtDecode(accessToken);
+        setUser({ id: refreshedUser.id, email: refreshedUser.email, token: accessToken });
+      } else {
+        // Token is valid
+        setUser({ id: decodedToken.id, email: decodedToken.email, token });
       }
     } catch (error) {
-      console.error('Error checking login status:', error);
+      console.error('Error during login check:', error.message);
+      await clearTokens(); // Clear tokens if invalid
     } finally {
       setLoading(false);
     }
   };
 
+  // Submit Screentime
   const submitScreentime = async (screentimeData) => {
-    if (!user) {
-      throw new Error('User is not logged in');
-    }
+    if (!user) throw new Error('User is not logged in');
     try {
-      const data = {
-        userID: user.id, // Attach the user's ID
-        totalScreentime: screentimeData.totalScreentime,
-        date: screentimeData.date || new Date().toISOString(), // Default to the current date
-        apps: screentimeData.apps,
-      };
-
-      const response = await axios.post(`${baseURL}/api/auth/screentime`, data, {
-        headers: {
-          Authorization: `Bearer ${user.token}`, // Include the auth token
-        },
-      });
+      const response = await axios.post(
+        `${BASE_URL}/api/auth/screentime`,
+        { ...screentimeData, userID: user.id },
+        { headers: { Authorization: `Bearer ${user.token}` } }
+      );
       return response.data;
     } catch (error) {
       console.error('Error submitting screentime:', error.response?.data || error.message);
       throw error;
     }
   };
-  
-  const fetchScreentime = async () => {
-    if (!user) {
-      console.error('Error: User is not logged in');
-      throw new Error('User is not logged in');
-    }
 
+  // Fetch Screentime
+  const fetchScreentime = async () => {
+    if (!user) throw new Error('User is not logged in');
     try {
-      // Construct the URL dynamically with the userID
-      const url = `${baseURL}/api/auth/screentime/${user.id}`;
-      
-      // Make the GET request with query parameters and headers
-      const response = await axios.get(url, {
-        headers: {
-          Authorization: `Bearer ${user.token}`,
-        },
+      const response = await axios.get(`${BASE_URL}/api/auth/screentime/${user.id}`, {
+        headers: { Authorization: `Bearer ${user.token}` },
       });
-  
-      return response.data; // Return the data if the request is successful
+      return response.data;
     } catch (error) {
-      // Handle and log detailed error messages
-      console.error(
-        'Error fetching screentime:',
-        error.response?.data?.message || error.message
-      );
-  
-      throw error; // Re-throw the error for further handling
+      console.error('Error fetching screentime:', error.response?.data?.message || error.message);
+      throw error;
     }
   };
-  
 
+  // Axios Interceptor for Auto Token Refresh
+  useEffect(() => {
+    const interceptor = axios.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const originalRequest = error.config;
+
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true;
+
+          try {
+            const { refreshToken } = await getStoredTokens();
+            if (!refreshToken) throw new Error('No refresh token found');
+
+            const response = await axios.post(`${BASE_URL}/api/auth/refresh-token`, {
+              token: refreshToken,
+            });
+
+            const { accessToken } = response.data;
+            await AsyncStorage.setItem('userToken', accessToken);
+
+            originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
+            return axios(originalRequest);
+          } catch (refreshError) {
+            console.error('Token refresh failed:', refreshError);
+            await logout();
+            return Promise.reject(refreshError);
+          }
+        }
+
+        return Promise.reject(error);
+      }
+    );
+
+    return () => {
+      axios.interceptors.response.eject(interceptor);
+    };
+  }, []);
+
+  // Initial Check
   useEffect(() => {
     isLoggedIn();
   }, []);
@@ -135,6 +198,4 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export const useAuth = () => {
-  return useContext(AuthContext);
-};
+export const useAuth = () => useContext(AuthContext);

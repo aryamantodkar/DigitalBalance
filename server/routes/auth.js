@@ -4,9 +4,14 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Screentime = require('../models/Screentime');
 const router = express.Router();
+const VerifyToken = require('../middleware/VerifyToken');
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+};
+
+const generateRefreshToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
 };
 
 router.post('/register', async (req, res) => {
@@ -33,7 +38,6 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Login
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
@@ -42,25 +46,25 @@ router.post('/login', async (req, res) => {
 
   try {
     const user = await User.findOne({ email });
-
     if (!user) {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
-    // Compare the entered password with the hashed password in the database
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
     const token = generateToken(user._id);
-    res.status(200).json({ id: user._id, email: user.email, token });
+    const refreshToken = generateRefreshToken(user._id);
+
+    res.status(200).json({ id: user._id, email: user.email, token, refreshToken });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-router.post('/screentime', async (req, res) => {
+router.post('/screentime',VerifyToken, async (req, res) => {
   const { userID, totalScreentime, date, apps } = req.body;
 
   // Validate request
@@ -84,7 +88,7 @@ router.post('/screentime', async (req, res) => {
   }
 });
 
-router.get('/screentime/:userID', async (req, res) => {
+router.get('/screentime/:userID',VerifyToken, async (req, res) => {
   const { userID } = req.params;
 
   try {
@@ -95,6 +99,33 @@ router.get('/screentime/:userID', async (req, res) => {
     res.status(500).json({ message: 'Something went wrong. Please try again later.' });
   }
 });
+
+router.post('/refresh-token', async (req, res) => {
+  const { token } = req.body; // Get refresh token from the client
+
+  if (!token) {
+    return res.status(400).json({ message: 'Refresh token is required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+    const user = await User.findById(decoded.id);
+
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid refresh token' });
+    }
+
+    const newAccessToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: '1d',
+    });
+
+    res.status(200).json({ accessToken: newAccessToken });
+  } catch (err) {
+    res.status(401).json({ message: 'Invalid or expired refresh token' });
+  }
+});
+
+
 
 
 module.exports = router;
