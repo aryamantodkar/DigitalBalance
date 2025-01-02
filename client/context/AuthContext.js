@@ -165,6 +165,36 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  //Check Verification Email Status
+  const checkVerificationStatus = async (userId) => {
+    try {
+      const response = await axios.get(`${BASE_URL}/api/auth/check-verification`, {
+        params: { userId: userId },
+      });
+      if (response.data.verified) {
+        return response.data;
+      }
+    } catch (err) {
+      throw err;
+    } 
+  };
+
+  //Resend Verification Email
+  const handleResend = async ( email ) => {
+    setResendLoading(true);
+    setMessage('');
+    setError('');
+
+    try {
+      const response = await axios.post(`${BASE_URL}/api/auth/resend-verification`, { email: email });
+      if (response.data.message) {
+        return response.data;
+      }
+    } catch (err) {
+      throw err;
+    } 
+  };
+
   // Axios Interceptor for Auto Token Refresh
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
@@ -220,6 +250,8 @@ export const AuthProvider = ({ children }) => {
         message,
         submitScreentime,
         fetchScreentime,
+        checkVerificationStatus,
+        handleResend
       }}
     >
       {children}

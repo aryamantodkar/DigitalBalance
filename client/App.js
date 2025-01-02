@@ -1,23 +1,17 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, ActivityIndicator, SafeAreaView } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import Navbar from './components/Navbar';
-import Login from './screens/Login';
-import Register from './screens/Register';
+import Login from './screens/AuthStack/Login';
+import Register from './screens/AuthStack/Register';
+import ProfileSetup from './screens/FirstLoginStack/ProfileSetup'; // Add screens for first login flow
+import ScreentimeSetup from './screens/FirstLoginStack/ScreenLimitSetup';
+import TopAppsSetup from './screens/FirstLoginStack/TopAppsSetup';
 import { useFonts } from 'expo-font';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NavigationContainer } from '@react-navigation/native';
-import {
-  configureReanimatedLogger,
-  ReanimatedLogLevel,
-} from 'react-native-reanimated';
-import VerificationEmail from './screens/VerificationEmail';
-
-// This is the default configuration
-configureReanimatedLogger({
-  level: ReanimatedLogLevel.warn,
-  strict: false, // Reanimated runs in strict mode by default
-});
+import axios from 'axios';
+import VerificationEmail from './screens/AuthStack/VerificationEmail';
 
 const Stack = createStackNavigator();
 
@@ -32,6 +26,14 @@ const AuthStack = () => (
 const AppStack = () => (
   <Stack.Navigator>
     <Stack.Screen name="Navbar" component={Navbar} options={{ headerShown: false }} />
+  </Stack.Navigator>
+);
+
+const FirstLoginStack = () => (
+  <Stack.Navigator>
+    <Stack.Screen name="ProfileSetup" component={ProfileSetup} options={{ headerShown: false }} />
+    <Stack.Screen name="ScreentimeSetup" component={ScreentimeSetup} options={{ headerShown: false }} />
+    <Stack.Screen name="TopAppsSetup" component={TopAppsSetup} options={{ headerShown: false }} />
   </Stack.Navigator>
 );
 
@@ -51,9 +53,31 @@ const RootNavigator = () => {
   });
 
   const { user, isLoading } = useAuth();
+  const [isFirstLogin, setIsFirstLogin] = useState(false);
+  const [loadingFirstLogin, setLoadingFirstLogin] = useState(true);
 
-  // Show loading spinner while fonts or authentication state is being loaded
-  if (!fontsLoaded || isLoading) {
+  useEffect(() => {
+    const checkFirstLogin = async () => {
+      try {
+        if (user) {
+          const response = await axios.get('/api/auth/first-login', {
+            headers: {
+              Authorization: `Bearer ${user.token}`, // Adjust based on your token logic
+            },
+          });
+          setIsFirstLogin(response.data.firstLogin);
+        }
+      } catch (error) {
+        console.error('Error fetching first login status:', error);
+      } finally {
+        setLoadingFirstLogin(false);
+      }
+    };
+
+    checkFirstLogin();
+  }, [user]);
+
+  if (!fontsLoaded || isLoading || loadingFirstLogin) {
     return (
       <SafeAreaView style={[styles.container, styles.center]}>
         <ActivityIndicator size="large" color="#0000ff" />
@@ -61,10 +85,9 @@ const RootNavigator = () => {
     );
   }
 
-  // Display either the authenticated stack or the unauthenticated stack
   return (
     <NavigationContainer>
-      {user ? <AppStack /> : <AuthStack />}
+      {user ? (isFirstLogin ? <FirstLoginStack /> : <AppStack />) : <AuthStack />}
     </NavigationContainer>
   );
 };

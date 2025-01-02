@@ -8,12 +8,14 @@ const UserSchema = new mongoose.Schema({
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // List of user IDs following this user
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // List of user IDs this user follows
   screentimePrivacy: { type: Boolean, default: false }, // Whether screentime is public or private
-  activeChallenges: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Challenge' }], // Active challenges the user is part of
   emailVerified: { type: Boolean, default: false }, // Whether the email has been verified
   verificationToken: { type: String }, // Token used for email verification
   verificationTokenExpiration: { type: Date }, // Expiration time for verification token
   resetToken: { type: String }, // Token for password reset
   resetTokenExpiration: { type: Date }, // Expiration time for reset token
+  screentimeLimit: { type: Number, default: 0 }, // Daily screentime limit in minutes
+  selectedApps: [{ type: String }], // Top 3 apps user wants to track
+  firstLogin: { type: Boolean, default: true }, // Whether it's the user's first login
 });
 
 module.exports = mongoose.model('User', UserSchema);

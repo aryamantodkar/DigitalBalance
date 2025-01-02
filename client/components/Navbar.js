@@ -1,9 +1,9 @@
 import { StyleSheet, View } from 'react-native';
 import React, { useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import LogTime from '../screens/LogTime';
-import HomePage from '../screens/HomePage';
-import AccountPage from '../screens/AccountPage';
+import LogTime from '../screens/AppStack/LogTime';
+import HomePage from '../screens/AppStack/HomePage';
+import AccountPage from '../screens/AppStack/AccountPage';
 import CustomTabBar from './CustomTabBar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';

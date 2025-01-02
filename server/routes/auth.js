@@ -134,39 +134,51 @@ const sendVerificationEmail = async (email, verificationToken) => {
 };
 
 router.post('/register', async (req, res) => {
-  const { name, email, password, profilePicture } = req.body;
+  const { name, email, password } = req.body;
 
+  // Validate required fields
   if (!name || !email || !password) {
-    return res.status(400).json({ message: 'Name, email, and password are required' });
+    return res
+      .status(400)
+      .json({ message: 'Name, email, and password are required.' });
   }
 
   try {
+    // Check if the user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: 'User already exists with this email' });
+      return res
+        .status(400)
+        .json({ message: 'User already exists with this email.' });
     }
 
+    // Hash the password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Generate a verification token
+    // Generate a verification token and expiration date
     const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationTokenExpiration = new Date(Date.now() + 24 * 60 * 60 * 1000); // Token expires in 24 hours
 
+    // Create a new user with default values for fields not yet collected
     const newUser = new User({
       name,
       email,
       password: hashedPassword,
-      profilePicture: profilePicture || '',
+      firstLogin: true, // User will provide additional details on first login
+      emailVerified: false, // Default to false for new users
       verificationToken,
-      emailVerified: false, // Initially set to false
+      verificationTokenExpiration,
     });
 
     await newUser.save();
+
     res.status(201).json({
       message: 'User registered successfully! A verification email has been sent.',
-      userId: newUser._id, // Sending userId in the response
+      userId: newUser._id,
     });
-
+    
+    // Send verification email
     try {
       await sendVerificationEmail(email, verificationToken);
     } catch (emailError) {
@@ -525,79 +537,63 @@ router.post('/refresh-token', async (req, res) => {
   }
 });
 
-// Forgot Password
-router.post('/forgot-password', async (req, res) => {
-  const { email } = req.body;
-
-  if (!email) {
-    return res.status(400).json({ message: 'Email is required' });
-  }
-
+router.get('/first-login', VerifyToken, async (req, res) => {
   try {
-    const user = await User.findOne({ email });
+    const userId = req.user.id; // `req.user` is assumed to be set by the `authenticate` middleware
+    const user = await User.findById(userId);
+
     if (!user) {
-      return res.status(400).json({ message: 'No user found with this email' });
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    // Generate reset token and expiration time
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    user.resetToken = resetToken;
-    user.resetTokenExpiration = Date.now() + 3600000; // 1 hour expiration
-    await user.save();
-
-    const resetUrl = `https://yourapp.com/reset-password?token=${resetToken}`;
-
-    const msg = {
-      to: email,
-      from: 'your-email@example.com',  // Your verified SendGrid email address
-      subject: 'Password Reset',
-      text: `Click on the link to reset your password: ${resetUrl}`,
-      html: `<strong>Click on the link to reset your password:</strong> <a href="${resetUrl}">${resetUrl}</a>`,
-    };
-
-    sendgrid.send(msg)
-      .then(() => {
-        res.status(200).json({ message: 'Password reset email sent!' });
-      })
-      .catch((err) => {
-        res.status(500).json({ message: 'Error sending email. Please try again later.' });
-      });
-
-  } catch (err) {
-    res.status(500).json({ message: 'Something went wrong. Please try again later.' });
+    res.status(200).json({ firstLogin: user.firstLogin });
+  } catch (error) {
+    console.error("Error checking first login:", error);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
-// Reset Password
-router.post('/reset-password', async (req, res) => {
-  const { token, newPassword } = req.body;
-
-  if (!token || !newPassword) {
-    return res.status(400).json({ message: 'Token and new password are required' });
-  }
+router.put('/update-profile', VerifyToken, async (req, res) => {
+  const userId = req.user.id; // Retrieved from the auth middleware
+  const { 
+    profilePicture, 
+    selectedApps, 
+    screentimePrivacy, 
+    screentimeLimit 
+  } = req.body;
 
   try {
-    const user = await User.findOne({
-      resetToken: token,
-      resetTokenExpiration: { $gt: Date.now() }, // Check if token is not expired
-    });
-
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid or expired reset token' });
+    // Validate the input fields
+    if (selectedApps && selectedApps.length > 3) {
+      return res.status(400).json({ message: 'You can select up to 3 apps only.' });
     }
 
-    // Hash the new password and save it
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(newPassword, salt);
-    user.password = hashedPassword;
-    user.resetToken = undefined;
-    user.resetTokenExpiration = undefined;
-    await user.save();
+    // Update the user document
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          ...(profilePicture && { profilePicture }),
+          ...(selectedApps && { selectedApps }),
+          ...(screentimePrivacy !== undefined && { screentimePrivacy }),
+          ...(screentimeLimit !== undefined && { screentimeLimit }),
+          firstLogin: false, // Mark as no longer the first login
+        },
+      },
+      { new: true } // Return the updated document
+    );
 
-    res.status(200).json({ message: 'Password reset successfully!' });
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
 
-  } catch (err) {
-    res.status(500).json({ message: 'Something went wrong. Please try again later.' });
+    res.status(200).json({
+      message: 'Profile updated successfully!',
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ message: 'An error occurred while updating the profile.' });
   }
 });
 
