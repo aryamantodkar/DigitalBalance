@@ -11,6 +11,7 @@ import {
   configureReanimatedLogger,
   ReanimatedLogLevel,
 } from 'react-native-reanimated';
+import VerificationEmail from './screens/VerificationEmail';
 
 // This is the default configuration
 configureReanimatedLogger({
@@ -24,6 +25,7 @@ const AuthStack = () => (
   <Stack.Navigator>
     <Stack.Screen name="Login" component={Login} options={{ headerShown: false }} />
     <Stack.Screen name="Register" component={Register} options={{ headerShown: false }} />
+    <Stack.Screen name="VerificationEmail" component={VerificationEmail} options={{ headerShown: false }} />
   </Stack.Navigator>
 );
 

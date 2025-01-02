@@ -24,6 +24,7 @@ const Register = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword,setShowPassword] = useState(false);
+    const [isSubmitted,setIsSubmitted] = useState(false);
 
     const logoAnimation = useRef(new Animated.Value(0)).current;
     const inputAnimation = useRef(new Animated.Value(0)).current;
@@ -54,9 +55,18 @@ const Register = () => {
         ]).start();
     }, []);
 
-    const handleRegister = () => {
-        register(name, email, password);
+    const handleRegister = async () => {
+        try {
+            const result = await register(name, email, password);
+            if (result.success) {
+              // Navigate to verification email screen with the userId
+              navigation.navigate('VerificationEmail', { userId: result.userId, email });
+            }
+        } catch (error) {
+          console.error(error);
+        }
     };
+      
 
     return (
         <KeyboardAvoidingView
@@ -197,7 +207,7 @@ const Register = () => {
                     </Animated.View>
 
                     {/* Message */}
-                    {message ? (
+                    {isSubmitted && message ? (
                         <Text
                             style={[
                                 styles.message,

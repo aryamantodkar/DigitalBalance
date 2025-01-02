@@ -63,9 +63,18 @@ export const AuthProvider = ({ children }) => {
         profilePicture,
       });
       setMessage(response.data.message);
+
+      return {
+        success: true,
+        userId: response.data.userId,  // Assuming the server returns userId in the response
+      };
     } catch (error) {
       setMessage(error.response?.data?.message || 'Registration failed');
-      console.error('Registration failed:', error.message);
+      console.error('Registration failed:', error);
+
+      return {
+        success: false,
+      };
     }
   };
 
