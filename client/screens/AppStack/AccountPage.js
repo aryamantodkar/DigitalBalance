@@ -149,7 +149,7 @@ const AccountPage = () => {
     const avgDaily = calculateAverageScreentime(data);
     const { bestDay, worstDay } = findBestAndWorstDays(data);
     const { currentWeekData, lastWeekData } = getWeekData(data);
-    const percentageChange = (calculatePercentageChange(currentWeekData, lastWeekData)).toFixed(2);
+    const percentageChange = (calculatePercentageChange(currentWeekData, lastWeekData))?.toFixed(2);
     const { totalDays: fiveYearDays } = calculateProjectedScreentime(avgDaily, 5);
     const { totalDays: fiftyYearDays } = calculateProjectedScreentime(avgDaily, 50);
 
@@ -880,10 +880,10 @@ const AccountPage = () => {
                                       <MaterialIcons name="sunny" size={24} color="orange"  style={{marginLeft: 10}}/>
                                     </View>
                                     <View style={{marginVertical: 5}}>
-                                      <Text style={[styles.message,{color: '#15803D',fontSize: 18,marginBottom: 0}]}>{insights[index]?.bestDay.formattedDate}</Text>
+                                      <Text style={[styles.message,{color: '#15803D',fontSize: 18,marginBottom: 0}]}>{insights[index]?.bestDay?.formattedDate}</Text>
                                     </View>
                                     <View style={{marginVertical: 5}}>
-                                      <Text style={[styles.message,{color: '#16A34A',fontSize: 25,marginBottom: 0}]}>{Math.floor(insights[index]?.bestDay.totalScreentime / 60)}h {insights[index]?.bestDay.totalScreentime % 60}m</Text>
+                                      <Text style={[styles.message,{color: '#16A34A',fontSize: 25,marginBottom: 0}]}>{Math.floor(insights[index]?.bestDay?.totalScreentime / 60)}h {insights[index]?.bestDay?.totalScreentime % 60}m</Text>
                                     </View>
                                 </View>
                                 <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '90%',paddingVertical: 10,backgroundColor: '#FEF2F2',borderRadius: 10,shadowColor: '#000',
@@ -898,10 +898,10 @@ const AccountPage = () => {
                                       <AntDesign name="exclamationcircle" size={20} color="red" style={{marginLeft: 10}}/>
                                     </View>
                                     <View style={{marginVertical: 5}}>
-                                      <Text style={[styles.message,{color: '#B91C1C',fontSize: 18,marginBottom: 0}]}>{insights[index]?.worstDay.formattedDate}</Text>
+                                      <Text style={[styles.message,{color: '#B91C1C',fontSize: 18,marginBottom: 0}]}>{insights[index]?.worstDay?.formattedDate}</Text>
                                     </View>
                                     <View style={{marginVertical: 5}}>
-                                      <Text style={[styles.message,{color: '#DC2626',fontSize: 25,marginBottom: 0}]}>{Math.floor(insights[index]?.worstDay.totalScreentime / 60)}h {insights[index]?.bestDay.totalScreentime % 60}m</Text>
+                                      <Text style={[styles.message,{color: '#DC2626',fontSize: 25,marginBottom: 0}]}>{Math.floor(insights[index]?.worstDay?.totalScreentime / 60)}h {insights[index]?.bestDay?.totalScreentime % 60}m</Text>
                                     </View>
                                 </View>
                               </View>

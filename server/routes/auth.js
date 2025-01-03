@@ -539,7 +539,7 @@ router.post('/refresh-token', async (req, res) => {
 
 router.get('/first-login', VerifyToken, async (req, res) => {
   try {
-    const userId = req.user.id; // `req.user` is assumed to be set by the `authenticate` middleware
+    const userId = req.query.user.id; // `req.user` is assumed to be set by the `authenticate` middleware
     const user = await User.findById(userId);
 
     if (!user) {
@@ -553,49 +553,110 @@ router.get('/first-login', VerifyToken, async (req, res) => {
   }
 });
 
-router.put('/update-profile', VerifyToken, async (req, res) => {
-  const userId = req.user.id; // Retrieved from the auth middleware
-  const { 
-    profilePicture, 
-    selectedApps, 
-    screentimePrivacy, 
-    screentimeLimit 
-  } = req.body;
-
+router.post('/upload',VerifyToken, async (req, res) => {
   try {
-    // Validate the input fields
-    if (selectedApps && selectedApps.length > 3) {
-      return res.status(400).json({ message: 'You can select up to 3 apps only.' });
-    }
+      const { userId, profilePicture } = req.body;
 
-    // Update the user document
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      {
-        $set: {
-          ...(profilePicture && { profilePicture }),
-          ...(selectedApps && { selectedApps }),
-          ...(screentimePrivacy !== undefined && { screentimePrivacy }),
-          ...(screentimeLimit !== undefined && { screentimeLimit }),
-          firstLogin: false, // Mark as no longer the first login
-        },
-      },
-      { new: true } // Return the updated document
-    );
+      if (!userId || !profilePicture) {
+          return res.status(400).json({ message: 'User ID and profile picture are required' });
+      }
 
-    if (!updatedUser) {
-      return res.status(404).json({ message: 'User not found.' });
-    }
+      // Find and update the user's profile picture
+      const user = await User.findByIdAndUpdate(
+          userId,
+          { profilePicture },
+          { new: true } // Return the updated user document
+      );
 
-    res.status(200).json({
-      message: 'Profile updated successfully!',
-      user: updatedUser,
-    });
+      if (!user) {
+          return res.status(404).json({ message: 'User not found' });
+      }
+
+      res.status(200).json({ message: 'Profile picture updated successfully', user });
   } catch (error) {
-    console.error('Error updating profile:', error);
-    res.status(500).json({ message: 'An error occurred while updating the profile.' });
+      console.error('Error updating profile picture:', error);
+      res.status(500).json({ message: 'Internal server error' });
   }
 });
 
+router.post('/update-selected-apps',VerifyToken, async (req, res) => {
+  try {
+      const { userId, selectedApps } = req.body;
+
+      console.log("user",userId);
+      console.log("selected",selectedApps)
+
+      if (!userId || !selectedApps) {
+          return res.status(400).json({ message: 'User ID and selected apps are required' });
+      }
+
+      const user = await User.findByIdAndUpdate(
+          userId,
+          { selectedApps },
+          { new: true } 
+      );
+
+      if (!user) {
+          return res.status(404).json({ message: 'User not found' });
+      }
+
+      res.status(200).json({ message: 'Selected apps updated successfully', user });
+  } catch (error) {
+      console.error('Error updating selected apps:', error);
+      res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+router.post('/set-first-login',VerifyToken, async (req, res) => {
+  try {
+    const { userId } = req.body; // Expecting userId in the request body
+
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+
+    // Find the user by ID and update the firstLogin field
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { firstLogin: false }, // Update the firstLogin field to false
+      { new: true } // Return the updated document
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    return res.status(200).json({ message: 'First login updated successfully', user });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.post('/screenlimit',VerifyToken, async (req, res) => {
+  try {
+    const { userId, screenTimeLimit } = req.body; // Expecting userId in the request body
+
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+
+    // Find the user by ID and update the firstLogin field
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { screentimeLimit: screenTimeLimit }, // Update the firstLogin field to false
+      { new: true } // Return the updated document
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    return res.status(200).json({ message: 'Screen limit updated successfully', user });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
 
 module.exports = router;

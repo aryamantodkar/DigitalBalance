@@ -195,6 +195,89 @@ export const AuthProvider = ({ children }) => {
     } 
   };
 
+  const checkFirstLogin = async (user) => {
+    try {
+      if (user) {
+        const response = await axios.get(`${BASE_URL}/api/auth/first-login`, {
+          params: {
+            user: user
+          }
+        });
+
+        return response.data;
+      }
+    } catch (error) {
+      throw error;
+    } 
+  };
+
+  const uploadPicture = async (profilePicture) => {
+    if (!user) throw new Error('User is not logged in');
+    try {
+      const response = await axios.post(`${BASE_URL}/api/auth/upload`, {
+          userId: user.id,
+          profilePicture,
+      }, {
+          headers: { Authorization: `Bearer ${user.token}` },
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('Error uploading picture:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  }
+
+  const updateFirstLogin = async () => {
+    if (!user) throw new Error('User is not logged in');
+    try {
+      const response = await axios.post(`${BASE_URL}/api/auth/set-first-login`, {
+          userId: user.id,
+      }, {
+          headers: { Authorization: `Bearer ${user.token}` },
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('Error updating first login:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  }
+
+  const updateScreenTimeLimit = async (screenTimeLimit) => {
+    if (!user) throw new Error('User is not logged in');
+    try {
+      const response = await axios.post(`${BASE_URL}/api/auth/screenlimit`, {
+          userId: user.id,
+          screenTimeLimit: screenTimeLimit
+      }, {
+          headers: { Authorization: `Bearer ${user.token}` },
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('Error updating screenlimit:', error);
+      throw error;
+    }
+  }
+
+  const updateSelectedApps = async (selectedApps) => {
+    if (!user) throw new Error('User is not logged in');
+    try {
+      const response = await axios.post(`${BASE_URL}/api/auth/update-selected-apps`, {
+          userId: user.id,
+          selectedApps: selectedApps
+      }, {
+          headers: { Authorization: `Bearer ${user.token}` },
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('Error updating selected apps:', error);
+      throw error;
+    }
+  }
+
   // Axios Interceptor for Auto Token Refresh
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
@@ -251,7 +334,12 @@ export const AuthProvider = ({ children }) => {
         submitScreentime,
         fetchScreentime,
         checkVerificationStatus,
-        handleResend
+        handleResend,
+        checkFirstLogin,
+        uploadPicture,
+        updateFirstLogin,
+        updateScreenTimeLimit,
+        updateSelectedApps
       }}
     >
       {children}

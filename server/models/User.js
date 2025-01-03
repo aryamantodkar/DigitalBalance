@@ -14,8 +14,13 @@ const UserSchema = new mongoose.Schema({
   resetToken: { type: String }, // Token for password reset
   resetTokenExpiration: { type: Date }, // Expiration time for reset token
   screentimeLimit: { type: Number, default: 0 }, // Daily screentime limit in minutes
-  selectedApps: [{ type: String }], // Top 3 apps user wants to track
+  selectedApps: [{
+    appName: { type: String },
+    appIconUrl: { type: String },
+    id: { type: String }
+  }], // Array of app objects with properties
   firstLogin: { type: Boolean, default: true }, // Whether it's the user's first login
 });
+
 
 module.exports = mongoose.model('User', UserSchema);
