@@ -62,30 +62,9 @@ const RootNavigator = () => {
     'InterHeadingBold': require('./assets/fonts/Inter_24pt-Bold.ttf'),
   });
 
-  const { user, isLoading, checkFirstLogin } = useAuth();
-  const [isFirstLogin, setIsFirstLogin] = useState(false);
-  const [loadingFirstLogin, setLoadingFirstLogin] = useState(false);
-
-  const fetchFirstLogin = async () => {
-    setLoadingFirstLogin(true); // Start loading only if user exists
-    try {
-      const response = await checkFirstLogin(user);
-      setIsFirstLogin(response?.firstLogin || false);
-    } catch (err) {
-      console.error("Error fetching first login status:", err);
-    } finally {
-      setLoadingFirstLogin(false); // Stop loading regardless of the outcome
-    }
-  };
+  const { user, isLoading, isFirstLogin, loadingFirstLogin } = useAuth();
+  const [isSplashVisible, setSplashVisible] = useState(true);
   
-
-  useEffect(() => {
-    if (user!=null) {
-      fetchFirstLogin();
-    }
-  }, [user]);
-  
-
   if (!fontsLoaded || isLoading || loadingFirstLogin) {
     return (
       <SafeAreaView style={[styles.container, styles.center]}>
@@ -96,8 +75,7 @@ const RootNavigator = () => {
 
   return (
     <NavigationContainer>
-      {/* {user ? (isFirstLogin ? <FirstLoginStack /> : <AppStack />) : <AuthStack />} */}
-      {user ? <AppStack/> : <AuthStack />}
+      {user ? (isFirstLogin ? <FirstLoginStack /> : <AppStack />) : <AuthStack />}
     </NavigationContainer>
   );
 };

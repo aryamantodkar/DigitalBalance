@@ -29,7 +29,7 @@ const sendVerificationEmail = async (email, verificationToken) => {
   const verificationUrl = `http://192.168.1.8:5000/api/auth/verify-email?token=${verificationToken}`;
   const msg = {
     to: email,
-    from: 'aryamant20@gmail.com', // Must be a verified sender in your SendGrid account
+    from: 'app.screenwise@gmail.com', // Must be a verified sender in your SendGrid account
     subject: 'Verify Your Email Address',
     text: `Hello,
 
@@ -582,9 +582,6 @@ router.post('/upload',VerifyToken, async (req, res) => {
 router.post('/update-selected-apps',VerifyToken, async (req, res) => {
   try {
       const { userId, selectedApps } = req.body;
-
-      console.log("user",userId);
-      console.log("selected",selectedApps)
 
       if (!userId || !selectedApps) {
           return res.status(400).json({ message: 'User ID and selected apps are required' });

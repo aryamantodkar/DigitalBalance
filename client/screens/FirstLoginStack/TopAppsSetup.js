@@ -67,15 +67,13 @@ const TopAppsSetup = ({ navigation }) => {
       if (selectedApps.length === 3) {
         // First, call setSelectedApps to update the user's selected apps
         const appsResponse = await updateSelectedApps(selectedApps);
-        console.log("apps",appsResponse)
         
         if (appsResponse) {
           // If updating selected apps was successful, proceed to update firstLogin
           const firstLoginResponse = await updateFirstLogin();
           
           if (firstLoginResponse) {
-            // If successful, navigate to the Navbar screen
-            navigation.navigate('Navbar');
+
           }
         }
       } else {

@@ -11,6 +11,8 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const [isFirstLogin, setIsFirstLogin] = useState(false);
+  const [loadingFirstLogin,setLoadingFirstLogin] = useState(false);
 
   // Helper functions for token storage/retrieval
   const storeTokens = async (token, refreshToken) => {
@@ -27,6 +29,18 @@ export const AuthProvider = ({ children }) => {
 
   const clearTokens = async () => {
     await AsyncStorage.multiRemove(['userToken', 'refreshToken']);
+  };
+
+  const fetchFirstLogin = async () => {
+    setLoadingFirstLogin(true); // Start loading only if user exists
+    try {
+      const response = await checkFirstLogin(user);
+      setIsFirstLogin(response?.firstLogin || false);
+    } catch (err) {
+      console.error("Error fetching first login status:", err);
+    } finally {
+      setLoadingFirstLogin(false); // Stop loading regardless of the outcome
+    }
   };
 
   // Login
@@ -204,6 +218,7 @@ export const AuthProvider = ({ children }) => {
           }
         });
 
+        setIsFirstLogin(response?.data?.firstLogin)
         return response.data;
       }
     } catch (error) {
@@ -237,6 +252,7 @@ export const AuthProvider = ({ children }) => {
           headers: { Authorization: `Bearer ${user.token}` },
       });
 
+      setIsFirstLogin(response?.data?.firstLogin)
       return response.data;
     } catch (error) {
       console.error('Error updating first login:', error.response?.data?.message || error.message);
@@ -317,6 +333,12 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
+  useEffect(() => {
+    if (user!=null) {
+      fetchFirstLogin();
+    }
+  }, [user]);
+
   // Initial Check
   useEffect(() => {
     isLoggedIn();
@@ -339,7 +361,9 @@ export const AuthProvider = ({ children }) => {
         uploadPicture,
         updateFirstLogin,
         updateScreenTimeLimit,
-        updateSelectedApps
+        updateSelectedApps,
+        isFirstLogin,
+        loadingFirstLogin
       }}
     >
       {children}
