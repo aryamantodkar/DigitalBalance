@@ -497,7 +497,7 @@ const AccountPage = () => {
   });  
 
   return (
-    <KeyboardAvoidingView style={{width: '100%',flex:1,backgroundColor: '#f9fbfa',flex: 1,height: '100%'}}>
+    <SafeAreaView style={{width: '100%',flex:1,backgroundColor: '#f9fbfa',flex: 1,height: '100%'}}>
           <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',margin: 'auto',paddingTop: 10,width: '100%'}}>
             <View style={{display: 'flex',flexDirection: 'row',justifyContent: 'space-between',width: '90%',paddingHorizontal: 5}}>
               <Pressable>
@@ -568,7 +568,7 @@ const AccountPage = () => {
                 {/* Followers & Following */}
                 <Text 
                   style={{ 
-                    fontFamily: 'InterHeadingRegular', 
+                    fontFamily: 'OutfitRegular', 
                     fontSize: 14, 
                     color: '#4B5563' // Medium grey for secondary text 
                   }}
@@ -700,7 +700,7 @@ const AccountPage = () => {
             {['year', 'month', 'week'].map((key) => (
               <Pressable style={{}} key={key} onPress={() => handlePress(key)}>
                 <Animated.View style={[styles.dateGroup, getStyleForGroup(key)]}>
-                  <Text style={{ fontFamily: 'InterHeadingRegular' }}>
+                  <Text style={{ fontFamily: 'OutfitRegular' }}>
                     {key.charAt(0).toUpperCase() + key.slice(1)}ly
                   </Text>
                 </Animated.View>
@@ -868,7 +868,7 @@ const AccountPage = () => {
                             )
                             :
                             <View style={{display: 'flex',justifyContent: 'space-around',alignItems: 'center',borderRadius: 10,height: '100%',padding: 15}}>
-                                <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadingRegular',fontSize: 18}]}>Screen Time Analysis</Text>
+                                <Text style={[styles.message,{color: '#404040',fontFamily: 'OutfitRegular',fontSize: 18}]}>Screen Time Analysis</Text>
                                 <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '90%',paddingVertical: 10,backgroundColor: '#F0FDF4',borderRadius: 10,shadowColor: '#000',
                                   shadowOffset: { width: 0, height: 5 },
                                   shadowOpacity: 0.1,
@@ -876,7 +876,7 @@ const AccountPage = () => {
                                   // Android shadow
                                   elevation: 5,}}>
                                     <View style={{display: 'flex',flexDirection: 'row',alignItems: 'center',justifyContent: 'center',marginVertical: 5}}>
-                                      <Text style={{fontFamily: 'InterHeadingRegular',color: '#404040' }}>Your Best Day</Text>
+                                      <Text style={{fontFamily: 'OutfitRegular',color: '#404040' }}>Your Best Day</Text>
                                       <MaterialIcons name="sunny" size={24} color="orange"  style={{marginLeft: 10}}/>
                                     </View>
                                     <View style={{marginVertical: 5}}>
@@ -894,7 +894,7 @@ const AccountPage = () => {
                                   elevation: 5,
                                   }}>
                                     <View style={{display: 'flex',flexDirection: 'row',alignItems: 'center',justifyContent: 'center',marginVertical: 5}}>
-                                      <Text style={{fontFamily: 'InterHeadingRegular',color: '#404040' }}>Your Worst Day</Text>
+                                      <Text style={{fontFamily: 'OutfitRegular',color: '#404040' }}>Your Worst Day</Text>
                                       <AntDesign name="exclamationcircle" size={20} color="red" style={{marginLeft: 10}}/>
                                     </View>
                                     <View style={{marginVertical: 5}}>
@@ -915,7 +915,7 @@ const AccountPage = () => {
           <View></View>
         }
       </ScrollView>
-    </KeyboardAvoidingView>
+    </SafeAreaView>
   )
 }
 
@@ -942,11 +942,11 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 18,
-    fontFamily: 'InterHeadingRegular',
+    fontFamily: 'OutfitRegular',
     marginBottom: 10,
   },
   chartHeader: {
-    fontFamily: 'InterHeadingMedium',
+    fontFamily: 'OutfitMedium',
     color: '#404040',
     fontSize: 22
   },
@@ -1015,7 +1015,7 @@ const styles = StyleSheet.create({
   dropdownText: {
     fontSize: 14,
     color: '#000',
-    fontFamily: 'InterHeadingRegular',
+    fontFamily: 'OutfitRegular',
   },
   icon: {
     width: 30, // Adjust as needed
@@ -1046,7 +1046,7 @@ const styles = StyleSheet.create({
   message: {
     fontSize: 17,
     color: '#777777',
-    fontFamily: 'InterHeadingSemiBold',
+    fontFamily: 'OutfitSemiBold',
     marginBottom: 10,
     textAlign: 'center'
   },

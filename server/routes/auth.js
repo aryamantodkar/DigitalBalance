@@ -136,6 +136,7 @@ const sendVerificationEmail = async (email, verificationToken) => {
 router.post('/register', async (req, res) => {
   const { name, email, password } = req.body;
 
+
   // Validate required fields
   if (!name || !email || !password) {
     return res
@@ -455,7 +456,6 @@ router.post('/resend-verification', async (req, res) => {
 // User Login
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
-
   if (!email || !password) {
     return res.status(400).json({ message: 'Email and password are required' });
   }
@@ -653,6 +653,76 @@ router.post('/screenlimit',VerifyToken, async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.post('/user/details',VerifyToken, async (req, res) => {
+  const { userId } = req.body; // Extract user ID from request body
+
+  if (!userId) {
+    return res.status(400).json({
+      success: false,
+      message: 'User ID is required.',
+    });
+  }
+
+  try {
+    // Fetch the user by ID with populated followers and following fields
+    const user = await User.findById(userId)
+      .populate('followers', 'name email profilePicture') // Populate follower details
+      .populate('following', 'name email profilePicture') // Populate following details
+      .select('-password -verificationToken -resetToken -firstLogin -emailVerified'); // Exclude sensitive fields
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found.',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    console.error('Error fetching user details:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch user details.',
+      error: error.message,
+    });
+  }
+});
+
+router.post('/screentime', async (req, res) => {
+  const { userID, totalScreentime, date, apps } = req.body;
+  // Validate request
+  if (!userID || !totalScreentime || !apps || typeof apps !== 'object') {
+    return res.status(400).json({ message: 'Invalid input. All fields are required.' });
+  }
+  try {
+    const screentime = new Screentime({
+      userID,
+      totalScreentime,
+      date,
+      apps
+    });
+    await screentime.save();
+    res.status(201).json({ message: 'Screentime record created successfully', screentime });
+  } catch (err) {
+    console.error("Error creating screentime record:", err);
+    res.status(500).json({ message: 'Something went wrong. Please try again later.' });
+  }
+});
+
+router.get('/screentime/:userID', async (req, res) => {
+  const { userID } = req.params;
+  try {
+    const records = await Screentime.find({ userID }).sort({ date: -1 });
+    res.status(200).json(records);
+  } catch (err) {
+    console.error("Error fetching screentime records:", err);
+    res.status(500).json({ message: 'Something went wrong. Please try again later.' });
   }
 });
 

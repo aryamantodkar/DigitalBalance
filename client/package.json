@@ -13,6 +13,7 @@
     "@react-native-async-storage/async-storage": "^2.1.0",
     "@react-native-async-storage/root": "github:react-native-async-storage/async-storage",
     "@react-native-community/blur": "^4.4.1",
+    "@react-native-community/datetimepicker": "8.2.0",
     "@react-native-community/masked-view": "^0.1.11",
     "@react-native-community/slider": "^4.5.5",
     "@react-native-picker/picker": "^2.10.2",
@@ -36,12 +37,16 @@
     "react-native-circular-progress-indicator": "^4.4.2",
     "react-native-dropdown-picker": "^5.4.6",
     "react-native-gesture-handler": "^2.21.2",
+    "react-native-get-random-values": "^1.11.0",
+    "react-native-linear-gradient": "^2.8.3",
+    "react-native-modal-datetime-picker": "^18.0.0",
     "react-native-reanimated": "~3.16.1",
     "react-native-reanimated-carousel": "^3.5.1",
     "react-native-safe-area-context": "^5.0.0",
     "react-native-screens": "^4.4.0",
     "react-native-svg": "^15.10.1",
-    "react-native-ui-datepicker": "^2.0.4"
+    "react-native-ui-datepicker": "^2.0.4",
+    "react-native-vector-icons": "^10.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"

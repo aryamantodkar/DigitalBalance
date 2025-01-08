@@ -5,7 +5,7 @@ import {jwtDecode} from 'jwt-decode'; // Fix import
 
 export const AuthContext = createContext();
 
-const BASE_URL = 'http://192.168.1.8:5000'; // Replace with your server IP
+const BASE_URL = 'http://192.168.1.7:5000'; // Replace with your server IP
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -62,7 +62,7 @@ export const AuthProvider = ({ children }) => {
       });
       return true;
     } catch (error) {
-      console.error('Login failed:', error.response?.data?.message || error.message);
+      console.error('Login failed:', error);
       return false;
     }
   };
@@ -294,6 +294,22 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  const fetchUserDetails = async () => {
+    if (!user) throw new Error('User is not logged in');
+    try {
+      const response = await axios.post(`${BASE_URL}/api/auth/user/details`, {
+          userId: user.id,
+      }, {
+          headers: { Authorization: `Bearer ${user.token}` },
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('Error updating selected apps:', error);
+      throw error;
+    }
+  }
+
   // Axios Interceptor for Auto Token Refresh
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
@@ -363,7 +379,8 @@ export const AuthProvider = ({ children }) => {
         updateScreenTimeLimit,
         updateSelectedApps,
         isFirstLogin,
-        loadingFirstLogin
+        loadingFirstLogin,
+        fetchUserDetails
       }}
     >
       {children}

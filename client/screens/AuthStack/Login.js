@@ -12,7 +12,7 @@ import {
     TouchableWithoutFeedback,
     View,
 } from 'react-native';
-import { AuthContext } from '../../context/AuthContext';
+import { AuthContext, useAuth } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -24,7 +24,7 @@ const Login = () => {
     const navigation = useNavigation();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const { login } = useContext(AuthContext);
+    const { login } = useAuth();
     const [showPassword,setShowPassword] = useState(false);
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -48,6 +48,7 @@ const Login = () => {
     const handleLogin = async () => {
         try {
             const isLoggedIn = await login(email, password);
+            console.log("islogged",isLoggedIn)
             if (isLoggedIn) {
                 // Login successful
             } else {
@@ -187,7 +188,7 @@ const styles = StyleSheet.create({
         color: '#6D9E9E',
         marginTop: 10,
         textAlign: 'center',
-        fontFamily: 'InterHeadingRegular',
+        fontFamily: 'OutfitRegular',
     },
     inputContainer: {
         marginBottom: 40,
@@ -232,7 +233,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#4A7676',
         textDecorationLine: 'underline',
-        fontFamily: 'InterHeadingRegular',
+        fontFamily: 'OutfitRegular',
         textAlign: 'center'
     },
     passwordContainer: {

@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#6D9E9E',
         textAlign: 'center',
-        fontFamily: 'InterHeadingRegular',
+        fontFamily: 'OutfitRegular',
         marginTop: 10,
     },
     imageContainer: {
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
         color: '#6D9E9E',
         marginTop: 15,
         fontSize: 14,
-        fontFamily: 'InterHeadingRegular',
+        fontFamily: 'OutfitRegular',
     },
     buttonContainer: {
         alignItems: 'center',

@@ -108,13 +108,13 @@ const styles = StyleSheet.create({
         borderRadius: 100,
         alignSelf: 'center',
         position: 'absolute',
-        bottom: 20,
+        bottom: 25,
         opacity: 1,
 
         // iOS shadow
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 5 },
-        shadowOpacity: 0.2,
+        shadowColor: '#404040',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
         shadowRadius: 5,
         // Android shadow
         elevation: 5,

@@ -49,17 +49,15 @@ const FirstLoginStack = () => (
 
 const RootNavigator = () => {
   const [fontsLoaded] = useFonts({
-    'InterSubtextExtraLight': require('./assets/fonts/Inter_18pt-ExtraLight.ttf'),
-    'InterSubtextLight': require('./assets/fonts/Inter_18pt-Light.ttf'),
-    'InterSubtextRegular': require('./assets/fonts/Inter_18pt-Regular.ttf'),
-    'InterSubtextSemiBold': require('./assets/fonts/Inter_18pt-SemiBold.ttf'),
-    'InterSubtextBold': require('./assets/fonts/Inter_18pt-Bold.ttf'),
     'InterHeadingExtraLight': require('./assets/fonts/Inter_24pt-ExtraLight.ttf'),
     'InterHeadingLight': require('./assets/fonts/Inter_24pt-Light.ttf'),
-    'InterHeadingRegular': require('./assets/fonts/Inter_24pt-Regular.ttf'),
-    'InterHeadingMedium': require('./assets/fonts/Inter_24pt-Medium.ttf'),
-    'InterHeadingSemiBold': require('./assets/fonts/Inter_24pt-SemiBold.ttf'),
+    'OutfitRegular': require('./assets/fonts/Inter_24pt-Regular.ttf'),
+    'OutfitMedium': require('./assets/fonts/Inter_24pt-Medium.ttf'),
+    'OutfitSemiBold': require('./assets/fonts/Inter_24pt-SemiBold.ttf'),
     'InterHeadingBold': require('./assets/fonts/Inter_24pt-Bold.ttf'),
+    'OutfitRegular': require('./assets/fonts/Outfit-Regular.ttf'),
+    'OutfitMedium': require('./assets/fonts/Outfit-Medium.ttf'),
+    'OutfitSemiBold': require('./assets/fonts/Outfit-SemiBold.ttf'),
   });
 
   const { user, isLoading, isFirstLogin, loadingFirstLogin } = useAuth();
@@ -68,7 +66,7 @@ const RootNavigator = () => {
   if (!fontsLoaded || isLoading || loadingFirstLogin) {
     return (
       <SafeAreaView style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color="#0000ff" />
+        <ActivityIndicator size="large" color="#404040" />
       </SafeAreaView>
     );
   }
@@ -91,7 +89,7 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f9fbfa',
   },
   center: {
     justifyContent: 'center',

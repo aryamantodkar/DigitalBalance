@@ -254,14 +254,14 @@ const styles = StyleSheet.create({
         marginTop: 20,
         textAlign: 'center',
         fontWeight: '700',
-        fontFamily: 'InterHeadingSemiBold',
+        fontFamily: 'OutfitSemiBold',
     },
     subTagline: {
         fontSize: 16,
         color: '#6D9E9E',
         marginTop: 10,
         textAlign: 'center',
-        fontFamily: 'InterHeadingRegular',
+        fontFamily: 'OutfitRegular',
     },
     inputContainer: {
         marginBottom: 40,
@@ -300,20 +300,20 @@ const styles = StyleSheet.create({
         fontSize: 18,
         color: '#FFFFFF',
         fontWeight: '600',
-        fontFamily: 'InterHeadingMedium',
+        fontFamily: 'OutfitMedium',
     },
     message: {
         marginTop: 20,
         fontSize: 14,
         textAlign: 'center',
-        fontFamily: 'InterHeadingRegular',
+        fontFamily: 'OutfitRegular',
     },
     registerText: {
         marginTop: 20,
         fontSize: 14,
         color: '#4A7676',
         textDecorationLine: 'underline',
-        fontFamily: 'InterHeadingRegular',
+        fontFamily: 'OutfitRegular',
         textAlign: 'center'
     },
     passwordContainer: {

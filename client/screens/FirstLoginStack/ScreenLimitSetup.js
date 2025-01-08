@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   subtitle: {
-    fontFamily: 'InterHeadingMedium',
+    fontFamily: 'OutfitMedium',
     fontSize: 16,
     color: '#5F7E7E',
     textAlign: 'center',
