@@ -13,12 +13,12 @@ import {
   View,
   Image,
   Modal,
+  ActivityIndicator
 } from 'react-native';
 import {Picker} from '@react-native-picker/picker';
 import { useFocusEffect } from '@react-navigation/native';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import AntDesign from '@expo/vector-icons/AntDesign';
-import ScreenTime from '../../components/ScreenTime';
 import DateTimePicker from 'react-native-ui-datepicker';
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
@@ -28,12 +28,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ScrollView } from 'react-native-gesture-handler';
 import CircularProgress from 'react-native-circular-progress-indicator';
 import { BlurView } from 'expo-blur';
-
-const { width } = Dimensions.get('window');
+import { useNavigation } from '@react-navigation/native'; 
+import LoadingScreen from '../../components/LoadingScreen';
 
 const LogTime = ({ setIsNavbarVisible }) => {
-  const { fetchUserDetails } = useAuth();
-  const [displayScreenTime, setDisplayScreenTime] = useState(false);
+  const { width } = Dimensions.get('window');
+  const navigation = useNavigation(); 
+
+  const { fetchUserDetails, submitScreentime } = useAuth();
   const [date, setDate] = useState(null);
   const [displayDate, setDisplayDate] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -43,13 +45,51 @@ const LogTime = ({ setIsNavbarVisible }) => {
   const [screentimeLimit,setScreentimeLimit] = useState(null);
   const [progressValue, setProgressValue] = useState(null);
   const [inputValues, setInputValues] = useState({}); 
-  
+  const [btnDisabled,setBtnDisabled] = useState(true);
+  const [convertedTimeLimit,setConvertedTimeLimit] = useState(null);
+  const [remainingTime,setRemainingTime] = useState(0);
+
+  const [isLoading, setIsLoading] = useState(false);
+  const loadingAnim = new Animated.Value(0); // Initial opacity 0
+
+  const scrollViewRef = useRef(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      // Reset scroll position when the page gains focus
+      scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: true });
+    }, [])
+  );
+
+  useEffect(() => {
+    // Fade in text and loader after the component mounts
+    Animated.timing(loadingAnim, {
+      toValue: 1,
+      duration: 1000,
+      useNativeDriver: true,
+    }).start();
+
+    const loadingTimeout = setTimeout(() => {
+      setIsLoading(false); // Hide loader after 3 seconds
+    }, 3000);
+
+    return () => clearTimeout(loadingTimeout); // Cleanup timeout if component unmounts
+  }, [isLoading]);
+
   dayjs.extend(advancedFormat);
 
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       setDate(dayjs().format('YYYY-MM-DD'));
       setDisplayDate(dayjs().format('DD-MMMM-YYYY').split('-'));
+      fetchData();
+
+      if(screentimeHours>screentimeLimit){
+        setRemainingTime(convertTime(screentimeHours-screentimeLimit));
+      }
+      else{
+        setRemainingTime(convertTime(screentimeLimit-screentimeHours));
+      }
     }, [])
   );
 
@@ -88,21 +128,37 @@ const LogTime = ({ setIsNavbarVisible }) => {
   const fetchData = async () => {
     try {
       const userDetails = await fetchUserDetails();
+      const timeLimit = userDetails?.data?.screentimeLimit*60;
+      const convertedTimeLimit = convertTime(userDetails?.data?.screentimeLimit*60);
+
       setUserData(userDetails?.data);
-      setScreentimeLimit(userDetails?.data?.screentimeLimit);
+      setScreentimeLimit(timeLimit);
+      setConvertedTimeLimit(convertedTimeLimit);
     } catch (error) {
       console.error('Error fetching screentime:', error.message);
     }
   };
 
-  const handleInputChange = (id, field, value) => {
-    setInputValues((prevValues) => ({
-        ...prevValues,
-        [id]: {
-            ...prevValues[id],
-            [field]: value,
-        },
-    }));
+  const handleInputChange = (id, field_1,field_2, value_1,value_2) => {
+    if(!inputValues[id]?.[field_2]){
+      setInputValues((prevValues) => ({
+          ...prevValues,
+          [id]: {
+              ...prevValues[id],
+              [field_1]: value_1,
+              [field_2]: value_2,
+          },
+      }));
+    }
+    else{
+      setInputValues((prevValues) => ({
+          ...prevValues,
+          [id]: {
+              ...prevValues[id],
+              [field_1]: value_1,
+          },
+      }));
+    }
   };
 
   const convertTime = time => {
@@ -117,6 +173,12 @@ const LogTime = ({ setIsNavbarVisible }) => {
   };
 
   const getThemeColors = (time) => {
+    if (time > (screentimeLimit/60)) {
+      return {
+        color: '#8B0000',
+        gradient: ['#FF6F6F', '#FF4C4C', '#8B0000']
+      };
+    }
     if (time == 0 && screentimeMinutes==0) {
       return {
         color: '#E7F6F6',
@@ -150,9 +212,49 @@ const LogTime = ({ setIsNavbarVisible }) => {
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const isValidAppTime = () => {
+      let flag = true;
+      let keys = Object.keys(inputValues);
+
+      if(keys.length>0){
+          keys.map(key => {
+              if((inputValues[key]["hours"]==undefined || inputValues[key]["hours"]=="") || inputValues[key]["minutes"]==undefined || inputValues[key]["minutes"]==""){
+                  flag = false;
+              }
+          })
+      }
+
+      return keys.length==userData?.selectedApps.length && flag;
+  };
+
+  const handleSubmit = async () => {
+      let totalMinutes = Number(screentimeHours*60) + Number(screentimeMinutes);
+      const screentimeData = {
+          totalScreentime: totalMinutes, // Total screen time in minutes
+          date: date, // ISO format date
+          apps: inputValues
+      };
+      try {
+        const response = await submitScreentime(screentimeData);
+        setInputValues({});
+        setScreentimeHours(0);
+        setScreentimeMinutes(0);
+        setIsLoading(true);
+
+        setTimeout(() => {
+          navigation.navigate('Home'); // Navigate to the final destination
+        }, 2000);
+
+        console.log('Screentime submitted successfully:', response);
+      } catch (error) {
+        console.error('Error submitting screentime:', error.message);
+      }
+  };
+
+
+  // useEffect(() => {
+  //   fetchData();
+  // }, []);
 
   useEffect(()=>{
     Animated.timing(marginTop, {
@@ -161,36 +263,33 @@ const LogTime = ({ setIsNavbarVisible }) => {
       useNativeDriver: false, // useNativeDriver is false because we're animating layout properties like marginTop
     }).start();
 
-    let noLimitValue = ((Number(screentimeHours)*60) + Number(screentimeMinutes))/10;
-    let limitValue = ((Number(screentimeHours)*60) + Number(screentimeMinutes))*100;
-    limitValue /= (screentimeLimit*60);
+    let totalScreentime = ((Number(screentimeHours)*60) + Number(screentimeMinutes));
 
-    if(screentimeLimit==null){
-      if(noLimitValue>100){
-        setProgressValue(100);
-      }
-      else setProgressValue(noLimitValue);
+    if((screentimeHours*60)>screentimeLimit){
+      setRemainingTime(convertTime((screentimeHours*60)-screentimeLimit));
     }
     else{
-      if(limitValue>100){
-        setProgressValue(100);
-      }
-      else setProgressValue(limitValue);
+      setRemainingTime(convertTime(screentimeLimit-(screentimeHours*60)));
+    }
+
+    if(totalScreentime>screentimeLimit){
+      setProgressValue(100);
+    }
+    else{
+      let remainder = (totalScreentime / screentimeLimit) * 100;
+      setProgressValue(remainder);
     }
   },[screentimeHours,screentimeMinutes]);
 
-  if (displayScreenTime) {
-    return (
-      <ScreenTime
-        hours={hours}
-        minutes={minutes}
-        date={date}
-        displayScreenTime={displayScreenTime}
-        setDisplayScreenTime={setDisplayScreenTime}
-        setIsNavbarVisible={setIsNavbarVisible}
-      />
-    );
-  } else {
+  useEffect(()=>{
+    if(isValidAppTime()) setBtnDisabled(false);
+    else setBtnDisabled(true);
+  },[inputValues])
+
+  if(isLoading){
+    return <LoadingScreen navigationType='Submit'/>
+  }
+  if(userData){
     return (
       <KeyboardAvoidingView
         style={styles.container}
@@ -203,7 +302,7 @@ const LogTime = ({ setIsNavbarVisible }) => {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <ScrollView ref={scrollViewRef} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
               <Animated.View
                 style={{
                   opacity: fadeAnim,
@@ -213,7 +312,7 @@ const LogTime = ({ setIsNavbarVisible }) => {
                 <View style={{marginVertical: 15,display: 'flex',justifyContent: 'center',alignItems: 'center'}}>
                   <Text style={[styles.label,{fontSize: 26,fontFamily: 'OutfitMedium'}]}>Log Time</Text>
                 </View>
-                <View style={[styles.datePickerContainer]}>
+                <View style={[styles.datePickerContainer,styles.shadow]}>
                   <Pressable
                     style={styles.datePickerButton}
                     onPress={() => setShowCalendar(true)}
@@ -249,7 +348,7 @@ const LogTime = ({ setIsNavbarVisible }) => {
                               onPress={() => setShowCalendar(false)}
                             />
                           </BlurView>
-
+  
                           {/* Calendar Container */}
                           <View style={styles.centeredContainer}>
                             <View style={styles.datePickerContainerCalendar}>
@@ -261,11 +360,11 @@ const LogTime = ({ setIsNavbarVisible }) => {
                                 displayFullDays
                                 onChange={(params) => {
                                   const selectedDate = new Date(params.date);
-
+  
                                   const localDate = new Date(
                                     selectedDate.getTime() - selectedDate.getTimezoneOffset() * 60000
                                   );
-
+  
                                   setDate(localDate);
                                   setDisplayDate(
                                     dayjs(localDate).format('DD-MMMM-YYYY').split('-')
@@ -281,7 +380,7 @@ const LogTime = ({ setIsNavbarVisible }) => {
                                   borderWidth: 1,
                                 }}
                               />
-
+  
                               {/* Footer Buttons */}
                               <View style={styles.footer}>
                                 <View style={styles.footerContainer}>
@@ -332,10 +431,13 @@ const LogTime = ({ setIsNavbarVisible }) => {
                       </TouchableWithoutFeedback>
                     )}
                 </View>
-
-                <View style={styles.timeInputContainer}>
-                  <View style={{marginBottom: 20}}>
-                    <Text style={[styles.label,{fontSize: 22,fontFamily: 'OutfitRegular'}]}>Screen Time</Text>
+  
+                <View style={[styles.timeInputContainer,styles.shadow]}>
+                  <View style={{marginBottom: 20,display: 'flex',flexDirection: 'column',justifyContent: 'center'}}>
+                    <Text style={[styles.label,{fontSize: 22,fontFamily: 'OutfitMedium'}]}>Screen Time</Text>
+                    <View style={{}}>
+                      <Text style={[styles.label,{fontSize: 16,fontFamily: 'OutfitRegular',textAlign: 'center'}]}>Limit : {convertedTimeLimit}</Text>
+                    </View>
                   </View>
                   <View style={{marginBottom: 20,position: 'relative',display: 'flex',justifyContent: 'center',alignItems:'center'}}>
                     <CircularProgress
@@ -374,6 +476,49 @@ const LogTime = ({ setIsNavbarVisible }) => {
                       end={{ x: 1, y: 1 }}
                     ></LinearGradient>
                   </View>
+                  {
+                    (screentimeHours*60) > screentimeLimit ? (
+                      screentimeHours>0 || screentimeMinutes>0
+                      ?
+                      <View style={{ marginBottom: 10, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: 20 }}>
+                        <Text
+                          style={[
+                            styles.label,
+                            {
+                              fontSize: 17,
+                              fontFamily: 'OutfitRegular',
+                              textAlign: 'center',
+                              color: 'red', // Red/Maroon for exceeding the limit
+                            },
+                          ]}
+                        >
+                          You’ve exceeded your Screen Time limit for today by <Text style={{fontFamily: 'OutfitSemiBold',}}>{remainingTime}</Text>.
+                        </Text>
+                      </View>
+                      :
+                      null
+                    ) : (
+                      screentimeHours>0 || screentimeMinutes>0
+                      ?
+                      <View style={{ marginBottom: 10, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: 20 }}>
+                        <Text
+                          style={[
+                            styles.label,
+                            {
+                              fontSize: 17,
+                              fontFamily: 'OutfitRegular',
+                              textAlign: 'center',
+                              color: '#4A7676', // Teal for staying within the limit
+                            },
+                          ]}
+                        >
+                          You’re <Text style={{fontFamily: 'OutfitSemiBold',}}>{remainingTime}</Text> under your Screen Time limit.
+                        </Text>
+                      </View>
+                      :
+                      null
+                    )
+                  }
                   <View style={styles.pickerContainer}>
                     <View style={styles.pickerWrapper}>
                       <Text style={styles.pickerLabel}>Hours</Text>
@@ -408,16 +553,16 @@ const LogTime = ({ setIsNavbarVisible }) => {
                     </View>
                   </View>
                 </View>
-
-                <View style={[styles.appTimesContainer]}>
+  
+                <View style={[styles.appTimesContainer,styles.shadow]}>
                   <View style={{marginBottom: 10}}>
-                    <Text style={[styles.label,{fontSize: 22,fontFamily: 'OutfitRegular'}]}>Track Apps</Text>
+                    <Text style={[styles.label,{fontSize: 22,fontFamily: 'OutfitMedium'}]}>Track Apps</Text>
                   </View>
                   {userData?.selectedApps.map(app => {
                     const appValues = inputValues[app.id] || { hours: '0', minutes: '0' };
                     let hours = appValues.hours;
                     let mins = appValues.minutes;
-
+  
                     if(!hours) hours = 0;
                     if(!mins) mins = 0;
                     return (
@@ -441,7 +586,7 @@ const LogTime = ({ setIsNavbarVisible }) => {
                             <Picker
                                 selectedValue={appValues.hours}
                                 style={[styles.picker]}
-                                onValueChange={(value) => handleInputChange(app.id, 'hours', value)}
+                                onValueChange={(value) => handleInputChange(app.id, 'hours','minutes', value,'0')}
                                 itemStyle={{color: '#4A7676',height: 150}}
                               >
                                 {Array.from({ length: 25 }, (_, i) => (
@@ -454,7 +599,7 @@ const LogTime = ({ setIsNavbarVisible }) => {
                             <Picker
                                 selectedValue={appValues.minutes}
                                 style={[styles.picker]}
-                                onValueChange={(value) => handleInputChange(app.id, 'minutes', value)}
+                                onValueChange={(value) => handleInputChange(app.id, 'minutes','hours', value,'0')}
                                 itemStyle={{color: '#4A7676',height: 150}}
                                 selectionColor='#4A7676'
                               >
@@ -468,9 +613,17 @@ const LogTime = ({ setIsNavbarVisible }) => {
                     )
                   })}
                 </View>
-                <Pressable style={styles.submitButton}>
-                  <Text style={[styles.label,{textAlign: 'center',color: '#fff',marginBottom: 0,fontFamily: 'OutfitMedium'}]}>Log</Text>
-                </Pressable>
+                {
+                  btnDisabled
+                  ?
+                  <Pressable style={[styles.submitButton,styles.shadow,{backgroundColor: '#f5f4f4'}]}>
+                    <Text style={[styles.label,{textAlign: 'center',color: '#ddd',marginBottom: 0,fontFamily: 'OutfitMedium'}]}>Log</Text>
+                  </Pressable>
+                  :
+                  <Pressable onPress={handleSubmit} style={[styles.submitButton,styles.shadow]}>
+                    <Text style={[styles.label,{textAlign: 'center',color: '#fff',marginBottom: 0,fontFamily: 'OutfitMedium'}]}>Log</Text>
+                  </Pressable>
+                }
               </Animated.View>
             </ScrollView>
           </LinearGradient>
@@ -478,6 +631,14 @@ const LogTime = ({ setIsNavbarVisible }) => {
       </KeyboardAvoidingView>
     );
   }
+  else{
+    return(
+      <SafeAreaView style={[styles.container]}>
+        <ActivityIndicator size="large" color="#4A7676" />
+      </SafeAreaView>
+    )
+  }
+  
 };
 
 export default LogTime;
@@ -492,7 +653,7 @@ const styles = StyleSheet.create({
       marginBottom: 30,
       backgroundColor: '#fff',
       padding: 15,
-      borderRadius: 20
+      borderRadius: 20,
   },
   datePickerButton: {
       height: 50,
@@ -650,9 +811,9 @@ const styles = StyleSheet.create({
   shadow: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.1,
     shadowRadius: 5,
-    elevation: 5
+    elevation: 5,
   },
   scrollContent: {
     width: '100%',

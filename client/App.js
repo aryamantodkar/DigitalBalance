@@ -61,12 +61,11 @@ const RootNavigator = () => {
   });
 
   const { user, isLoading, isFirstLogin, loadingFirstLogin } = useAuth();
-  const [isSplashVisible, setSplashVisible] = useState(true);
   
   if (!fontsLoaded || isLoading || loadingFirstLogin) {
     return (
       <SafeAreaView style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color="#404040" />
+        <ActivityIndicator size="large" color="#4A7676" />
       </SafeAreaView>
     );
   }
