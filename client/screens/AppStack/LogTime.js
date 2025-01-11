@@ -385,7 +385,17 @@ const LogTime = ({ setIsNavbarVisible }) => {
                               <View style={styles.footer}>
                                 <View style={styles.footerContainer}>
                                   <Pressable
-                                    onPress={() => setDate(new Date())}
+                                    onPress={() => {
+                                      const selectedDate = new Date();
+                                      const localDate = new Date(
+                                        selectedDate.getTime() - selectedDate.getTimezoneOffset() * 60000
+                                      );
+      
+                                      setDate(localDate);
+                                      setDisplayDate(
+                                        dayjs(localDate).format('DD-MMMM-YYYY').split('-')
+                                      );
+                                    }}
                                     accessibilityRole="button"
                                     accessibilityLabel="Today"
                                   >
@@ -665,6 +675,7 @@ const styles = StyleSheet.create({
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.15,
       shadowRadius: 5,
+      elevation: 5,
 
       flexDirection: 'row',
       position: 'relative'
@@ -817,7 +828,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     width: '100%',
-    paddingBottom: 100, 
+    paddingBottom: 90, 
     alignItems: 'center', 
   },
   pickerContainer: {

@@ -5,7 +5,7 @@ import {jwtDecode} from 'jwt-decode'; // Fix import
 
 export const AuthContext = createContext();
 
-const BASE_URL = 'http://192.168.1.8:5000'; // Replace with your server IP
+const BASE_URL = 'http://192.168.1.10:5000'; // Replace with your server IP
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);

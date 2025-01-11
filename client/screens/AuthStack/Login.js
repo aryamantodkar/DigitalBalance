@@ -48,7 +48,6 @@ const Login = () => {
     const handleLogin = async () => {
         try {
             const isLoggedIn = await login(email, password);
-            console.log("islogged",isLoggedIn)
             if (isLoggedIn) {
                 // Login successful
             } else {

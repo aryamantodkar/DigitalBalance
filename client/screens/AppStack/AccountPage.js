@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { StyleSheet, Text, View, Dimensions, Pressable,Image, Animated, KeyboardAvoidingView, ScrollView } from 'react-native';
-import { LineChart, BarChart } from 'react-native-chart-kit';
+import { LineChart } from 'react-native-chart-kit';
 import DropDownPicker from 'react-native-dropdown-picker';
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
@@ -119,31 +119,6 @@ const AccountPage = () => {
       fetchData(); // Refresh data when the screen is focused
     }, [])
   );
-
-  const aggregateScreentimeData = (screentimeArray) => {
-    const appUsageMap = {};
-  
-    screentimeArray.forEach((screentime) => {
-      screentime.apps.forEach((app) => {
-        if (appUsageMap[app.name]) {
-          appUsageMap[app.name].usageMinutes += app.totalMinutes;
-        } else {
-          appUsageMap[app.name] = {
-            usageMinutes: app.totalMinutes,
-            appIconUrl: app.appIconUrl, // Store the appIconUrl
-          };
-        }
-      });
-    });
-  
-    const aggregatedData = Object.entries(appUsageMap).map(([name, { usageMinutes, appIconUrl }]) => ({
-      name,
-      usageMinutes,
-      appIconUrl,
-    }));
-  
-    return aggregatedData;
-  };  
 
   const generateInsights = (data) => {
     const avgDaily = calculateAverageScreentime(data);
