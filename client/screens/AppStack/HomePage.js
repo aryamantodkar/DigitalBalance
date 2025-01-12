@@ -140,8 +140,8 @@ const HomePage = () => {
   };  
 
   const groupByWeek = (data) => {
-    const currentWeekStart = dayjs().startOf('week');
-    const currentWeekEnd = dayjs().endOf('week');
+    const currentWeekStart = dayjs().startOf('isoWeek');
+    const currentWeekEnd = dayjs().endOf('isoWeek'); 
   
     // Filter data to include only entries within the current week
     const currentWeekData = data.filter((entry) => {
@@ -371,14 +371,14 @@ const HomePage = () => {
           }
 
         <View style={styles.chartContainer}>
-          <Animated.View style={{display: 'flex',flexDirection: 'row',justifyContent: 'space-between',width: '100%', opacity: textOpacity}}>
-            <View style={{marginBottom: 20,display: 'flex',alignSelf: 'flex-start',padding: 10,paddingLeft: 25}}>
+          <Animated.View style={{display: 'flex',flexDirection: 'row',justifyContent: 'space-between',width: '100%', opacity: textOpacity,paddingHorizontal: 15}}>
+            <View style={{marginBottom: 20,display: 'flex',alignSelf: 'flex-start',padding: 10}}>
               <View style={{ marginBottom: 10 }}>
                 <Text style={{ fontFamily: 'OutfitRegular', fontSize: 14, color: '#404040' }}>This Week</Text>
               </View>
               <Text style={{ fontFamily: 'OutfitSemiBold', fontSize: 25, color: '#4A7676' }}>{convertTime(weeklyScreentime)}</Text>
             </View>
-            <View style={{marginBottom: 20,display: 'flex',alignSelf: 'flex-start',padding: 10,paddingLeft: 25}}>
+            <View style={{marginBottom: 20,display: 'flex',alignSelf: 'flex-start',padding: 10}}>
               <View style={{ marginBottom: 10 }}>
                 <Text style={{ fontFamily: 'OutfitRegular', fontSize: 14, color: '#404040' }}>{dayAbbreviations[chartData?.labels?.[selectedPointIndex]]}</Text>
               </View>
@@ -596,8 +596,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#f5f4f4',
     borderRadius: 20,
-    padding: 15,
-    paddingLeft: 0,
+    paddingVertical: 15,
     marginTop: 20,
 
     display: 'flex',

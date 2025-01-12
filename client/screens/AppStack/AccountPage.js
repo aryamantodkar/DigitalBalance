@@ -17,8 +17,9 @@ import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import isBetween from 'dayjs/plugin/isBetween';
 import Carousel from 'react-native-reanimated-carousel';
-import Svg, { Path, LinearGradient, Stop, Defs } from 'react-native-svg';
+import Svg, { Path, Stop, Defs } from 'react-native-svg';
 import utc from 'dayjs/plugin/utc';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const AccountPage = () => {
   dayjs.extend(isBetween);
@@ -236,94 +237,103 @@ const AccountPage = () => {
 
   const groupData = (data, groupBy) => {
     const currentDate = dayjs(); // Get today's date
+  
     const groupingStrategies = {
       week: (date) => {
-        const weekStart = dayjs(date).startOf('week');
-        const weekEnd = weekStart.endOf('week');
+        const weekStart = dayjs(date).startOf('isoWeek'); // Use isoWeek to start the week on Monday
+        const weekEnd = weekStart.endOf('isoWeek');
   
-        // Create a readable label for the week, regardless of the month
+        // Check if the week belongs to the current month
+        const isCurrentMonth = weekStart.month() === currentDate.month() || weekEnd.month() === currentDate.month(); // Include weeks that overlap months
+        if (!isCurrentMonth) return null; // Skip weeks that aren't in the current month
+  
+        // If the start and end month are different, display both months with full names
         const weekStartMonth = weekStart.format('MMMM');
         const weekEndMonth = weekEnd.format('MMMM');
-        const weekRange =
-          weekStartMonth === weekEndMonth
-            ? `${weekStart.format('MMMM D')} - ${weekEnd.format('D')}`
-            : `${weekStart.format('MMMM D')} - ${weekEnd.format('MMMM D')}`;
   
+        let weekRange = `${weekStart.format('MMMM D')} - ${weekEnd.format('D')}`;
+        if (weekStartMonth !== weekEndMonth) {
+          weekRange = `${weekStart.format('MMMM D')} - ${weekEnd.format('MMMM D')}`;
+        }
+  
+        // Use ISO week for consistent week labels
         return {
-          weekLabel: `Week ${Math.ceil(weekStart.date() / 7)}`,
+          weekLabel: `Week ${weekStart.isoWeek()}`, // Use isoWeek for accurate week numbering
+          weekStart: weekStart.format('MMMM D'),
+          weekEnd: weekEnd.format('D'),
           weekRange,
-          weekStartDate: weekStart,
+          weekStartDate: weekStart, // Add start date for sorting
         };
       },
       month: (date) => {
-        const month = dayjs(date).month(); // 0-based month index
-        const year = dayjs(date).year();
-        return { year, month };
+        // Return month as a number (0-11) and year for sorting, adjust to 1-indexed month
+        return [dayjs(date).year(), dayjs(date).month() + 1]; // Adjust month by adding 1
       },
       year: (date) => {
-        return dayjs(date).year();
+        return dayjs(date).year(); // Group by year for all available years in the data
       },
     };
   
+    // Group the data based on the selected grouping strategy (week, month, year)
     const groupedData = data.reduce((acc, item) => {
       const group = groupingStrategies[groupBy](item.date);
   
-      if (!group) return acc; // Skip if grouping is not valid
+      if (!group) return acc; // Skip data that doesn't fit the selected grouping strategy
   
       const { weekLabel, weekRange, weekStartDate } = group;
   
-      // Determine label based on grouping strategy
-      let label;
-      if (groupBy === 'week') {
-        label = weekLabel;
-      } else if (groupBy === 'month') {
-        label = `${group.year}-${group.month + 1}`; // Adjust month to 1-based
-      } else {
-        label = group;
-      }
+      const label = groupBy === 'week' ? weekLabel : groupBy === 'month' ? `${group[0]}-${group[1]}` : group;
   
-      if (!acc[label]) acc[label] = { screentime: 0, range: weekRange || label };
+      if (!acc[label]) acc[label] = { screentime: 0, range: weekRange || group };
   
-      // Add screentime data
-      if (selectedApp === 'All Apps') {
-        acc[label].screentime += item.totalScreentime;
-      } else {
-        const appScreentime = item.apps.find((app) => app.name === selectedApp);
-        if (appScreentime) acc[label].screentime += appScreentime.totalMinutes;
-      }
+      acc[label].screentime += item.totalScreentime;
+      acc[label].range = weekRange || group;
   
       if (weekStartDate) acc[label].weekStartDate = weekStartDate;
   
       return acc;
     }, {});
   
-    // Sort and format grouped data
+    // Sort the data based on the start date for week or month groupings
     const sortedGroupedData = Object.keys(groupedData)
-    .sort((a, b) => {
-      let aDate, bDate;
-    
-      if (groupBy === 'month') {
-        const [aYear, aMonth] = a.split('-');
-        const [bYear, bMonth] = b.split('-');
-        
-        // Create the dayjs object for proper UTC comparison
-        aDate = dayjs.utc(`${aYear}-${aMonth.padStart(2, '0')}-01`, 'YYYY-MM-DD'); // Ensure a valid date format with day
-        bDate = dayjs.utc(`${bYear}-${bMonth.padStart(2, '0')}-01`, 'YYYY-MM-DD');
-    
-      } else {
-        aDate = groupedData[a].weekStartDate || dayjs(a, 'MMMM');
-        bDate = groupedData[b].weekStartDate || dayjs(b, 'MMMM');
-      }
-    
-      return aDate.isBefore(bDate) ? -1 : 1;
-    })
-    .reduce((acc, label) => {
-      acc[label] = groupedData[label];
-      return acc;
-    }, {});
+      .sort((a, b) => {
+        let aDate, bDate;
+  
+        // Parse date for months and years
+        if (groupBy === 'month') {
+          const aMonth = groupedData[a].range[1]; // Month number (e.g., 12 for December)
+          const bMonth = groupedData[b].range[1]; // Month number (e.g., 11 for November)
+          const aYear = groupedData[a].range[0]; // Year (e.g., 2024)
+          const bYear = groupedData[b].range[0]; // Year (e.g., 2024)
+  
+          // Create date objects properly with the correct month and year
+          aDate = dayjs(`${aYear}-${aMonth}-01`, 'YYYY-MM-DD').month(aMonth); // Adjust for 0-indexed months
+          bDate = dayjs(`${bYear}-${bMonth}-01`, 'YYYY-MM-DD').month(bMonth);
+        } else {
+          // Sort weeks and years normally (if needed)
+          aDate = groupedData[a].weekStartDate || dayjs(a, 'MMMM');
+          bDate = groupedData[b].weekStartDate || dayjs(b, 'MMMM');
+        }
+  
+        // Sort by ascending order to show the latest month/week on the right
+        return aDate.isBefore(bDate) ? -1 : 1;
+      })
+      .reduce((acc, label) => {
+        // After sorting, convert month numbers to month names
+        if (groupBy === 'month') {
+          const monthIndex = groupedData[label].range[1]; // Convert to 0-based index
+          const monthName = dayjs().month(monthIndex - 1).format('MMMM'); // Get the full month name
+          groupedData[label].range = monthName + ' ' + groupedData[label].range[0]; // e.g., "December 2024"
+        }
+  
+        acc[label] = groupedData[label];
+        return acc;
+      }, {});
   
     return sortedGroupedData;
   };
+   
+  
   
   const updateChartData = (data, groupBy, selectedApp) => {
     Animated.timing(animatedOpacity, {
@@ -472,94 +482,34 @@ const AccountPage = () => {
   });  
 
   return (
-    <SafeAreaView style={{width: '100%',flex:1,backgroundColor: '#f9fbfa',flex: 1,height: '100%'}}>
-          <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',margin: 'auto',paddingTop: 10,width: '100%'}}>
-            <View style={{display: 'flex',flexDirection: 'row',justifyContent: 'space-between',width: '90%',paddingHorizontal: 5}}>
-              <Pressable>
-                <Ionicons name="settings" size={25} color="black" />
-              </Pressable>
-              <Pressable onPress={handleLogout}>
-                <MaterialIcons name="logout" size={25} color="black" />
-              </Pressable>
-            </View>
-            <View style={styles.header}>
-              <View style={{ 
-              flexDirection: 'row', 
-              alignItems: 'center', 
-              padding: 15, 
-              height: 130, 
-              width: '100%', 
-            }}>
-              {/* Profile Picture Section */}
-              <Pressable 
-                style={{ 
-                  width: '35%', 
-                  justifyContent: 'center', 
-                  alignItems: 'center' ,
-                  // iOS shadow
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 5 },
-                  shadowOpacity: 0.1,
-                  shadowRadius: 5,
-                  // Android shadow
-                  elevation: 5,
-                }}
-              >
-                <Image
-                  source={{ uri: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT4CtMpBDpj9ZrS106hAnAagEFIqo2DesVmXQ&s' }}
-                  style={{ 
-                    width: 90, 
-                    height: 90, 
-                    borderRadius: 45, 
-                    borderWidth: 2, 
-                    borderColor: '#E5E7EB' // Light border for emphasis
-                  }}
-                  resizeMode="cover"
-                />
-              </Pressable>
-              
-              {/* Text and Button Section */}
-              <View 
-                style={{ 
-                  flex: 1, 
-                  justifyContent: 'space-between', 
-                  height: '100%', 
-                  paddingLeft: 16 
-                }}
-              >
-                {/* User Name */}
-                <Text 
-                  style={{ 
-                    fontFamily: 'InterHeadingBold', 
-                    fontSize: 20, 
-                    color: '#1F2937' // Dark grey for readability 
-                  }}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  Aryaman Todkar
-                </Text>
-                
-                {/* Followers & Following */}
-                <Text 
-                  style={{ 
-                    fontFamily: 'OutfitRegular', 
-                    fontSize: 14, 
-                    color: '#4B5563' // Medium grey for secondary text 
-                  }}
-                >
-                  <Text style={{ fontFamily: 'InterHeadingBold', color: '#111827' }}>13</Text> Followers | 
-                  <Text style={{ fontFamily: 'InterHeadingBold', color: '#111827' }}> 12</Text> Following
-                </Text>
-                
-                {/* Follow Button */}
+      <LinearGradient
+              colors={['#E7F6F6', '#FBEFEF', '#F9FBFA']}
+              style={styles.container}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+          <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',margin: 'auto',paddingTop: 10,padding: 20,paddingBottom: 0,width: '100%'}}>
+              <View style={{display: 'flex',flexDirection: 'row',justifyContent: 'space-between',width: '90%',paddingHorizontal: 5}}>
+                <Pressable>
+                  <Ionicons name="settings" size={25} color="black" />
+                </Pressable>
+                <Pressable onPress={handleLogout}>
+                  <MaterialIcons name="logout" size={25} color="black" />
+                </Pressable>
+              </View>
+              <View style={styles.header}>
+                <View style={{ 
+                flexDirection: 'row', 
+                alignItems: 'center', 
+                padding: 15, 
+                height: 130, 
+                width: '100%', 
+              }}>
                 <Pressable 
                   style={{ 
-                    backgroundColor: '#10B981', // Calming green to signify positive action
-                    paddingVertical: 8, 
-                    paddingHorizontal: 16, 
-                    borderRadius: 6, 
-                    alignSelf: 'flex-start', // Button will adjust to its content
+                    width: '35%', 
+                    justifyContent: 'center', 
+                    alignItems: 'center' ,
                     // iOS shadow
                     shadowColor: '#000',
                     shadowOffset: { width: 0, height: 5 },
@@ -569,328 +519,400 @@ const AccountPage = () => {
                     elevation: 5,
                   }}
                 >
+                  <Image
+                    source={{ uri: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT4CtMpBDpj9ZrS106hAnAagEFIqo2DesVmXQ&s' }}
+                    style={{ 
+                      width: 90, 
+                      height: 90, 
+                      borderRadius: 45, 
+                      borderWidth: 2, 
+                      borderColor: '#E5E7EB' // Light border for emphasis
+                    }}
+                    resizeMode="cover"
+                  />
+                </Pressable>
+                
+                <View 
+                  style={{ 
+                    flex: 1, 
+                    justifyContent: 'space-between', 
+                    height: '100%', 
+                    paddingLeft: 16 
+                  }}
+                >
                   <Text 
                     style={{ 
-                      color: '#FFFFFF', 
+                      fontFamily: 'OutfitSemiBold', 
+                      fontSize: 20, 
+                      color: '#1F2937' // Dark grey for readability 
+                    }}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    Aryaman Todkar
+                  </Text>
+                  <Text 
+                    style={{ 
+                      fontFamily: 'OutfitRegular', 
                       fontSize: 14, 
-                      fontWeight: '600' 
+                      color: '#4B5563' // Medium grey for secondary text 
                     }}
                   >
-                    Follow
+                    <Text style={{ fontFamily: 'OutfitSemiBold', color: '#111827' }}>13</Text> Followers | 
+                    <Text style={{ fontFamily: 'OutfitSemiBold', color: '#111827' }}> 12</Text> Following
                   </Text>
-                </Pressable>
+                  
+                  <Pressable 
+                    style={{ 
+                      backgroundColor: '#4A7676', // Calming green to signify positive action
+                      paddingVertical: 8, 
+                      paddingHorizontal: 16, 
+                      borderRadius: 6, 
+                      alignSelf: 'flex-start', // Button will adjust to its content
+                      // iOS shadow
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 5 },
+                      shadowOpacity: 0.1,
+                      shadowRadius: 5,
+                      // Android shadow
+                      elevation: 5,
+                    }}
+                  >
+                    <Text 
+                      style={{ 
+                        color: '#FFFFFF', 
+                        fontSize: 14, 
+                        fontWeight: '600' 
+                      }}
+                    >
+                      Follow
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+              </View>
+              <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',margin: 'auto',backgroundColor: '#fff',padding: 15,borderRadius: 20}}>
+                <DropDownPicker
+                    open={open}
+                    value={selectedApp}
+                    items={availableApps}
+                    setOpen={setOpen}
+                    setValue={setSelectedApp}
+                    setItems={setAvailableApps}
+                    placeholder="Select an App"
+                    dropDownContainerStyle={styles.dropdownContainer}
+                    style={styles.dropdown}
+                    textStyle={styles.dropdownText}
+                  />
+              </View>
+          </View>
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.chartContainer}>
+              {selectedPointIndex !== null
+                    ? 
+                    <View style={{display: 'flex',flexDirection: 'column',justifyContent: 'space-between',paddingHorizontal: 15}}>
+                      <View style={{marginBottom: 10}}>
+                        <Text style={[styles.chartHeader,{color: '#404040'}]}>{chartData?.ranges?.[selectedPointIndex]}</Text>
+                      </View>
+                      <View style={{marginTop: 10,display: 'flex',flexDirection: 'column'}}>
+                        <View style={{marginBottom: 10}}>
+                          <Text style={[styles.chartHeader,{fontSize: 15,color: '#808080'}]}>Screen Time</Text>
+                        </View>
+                        <Text style={[styles.chartHeader,{fontFamily: 'OutfitSemiBold',color: '#4A7676'}]}>{formatTime(chartData?.data?.[selectedPointIndex])}</Text>
+                      </View>
+                    </View>
+                    : chartData.labels.length
+                    ? 
+                    <View style={{display: 'flex',flexDirection: 'column',justifyContent: 'space-between',paddingHorizontal: 15}}>
+                      <View style={{marginBottom: 10}}>
+                        <Text style={[styles.chartHeader,{color: '#000'}]}>{chartData?.ranges[chartData?.labels?.length - 1]}</Text>
+                      </View>
+                      <View style={{marginTop: 10}}>
+                        <Text style={[styles.chartHeader,{color: '#000'}]}>{formatTime(chartData?.data[chartData?.data?.length - 1])}</Text>
+                      </View>
+                    </View>
+                    : 
+                    <Text>No data available</Text>
+                  }
+              <Animated.View style={{ opacity: animatedOpacity,marginTop: 20}}>
+                <LineChart
+                  data={{
+                    labels: updatedLabels?.length ? updatedLabels : ['No Data'], // Use updated month names
+                    datasets: [{ data: chartData?.data?.length ? chartData?.data : [0] }],
+                  }}
+                  width={Dimensions.get('window').width - 60} // Parent container's width 90% - padding*2
+                  height={200}
+                  chartConfig={{
+                    backgroundColor: '#fff',
+                    backgroundGradientFrom: '#fff',
+                    backgroundGradientTo: '#fff',
+                    decimalPlaces: 0,
+                    color: (opacity) => `rgba(62, 193, 141, ${opacity})`, // Bright blue for the line
+                    labelColor: (opacity) => `rgba(0, 0, 0, ${opacity})`,
+                    strokeWidth: 4, // Thicker line for more visibility
+                    style: {
+                      borderRadius: 16,
+                    },
+                    propsForDots: {
+                      r: '6', // Larger dots
+                      strokeWidth: '2',
+                      stroke: '#4A7676', // Warm orange border for dots
+                    },
+                  }}
+                  withDots={true} // Disable default dots
+                  bezier
+                  renderDotContent={({ x, y, index }) => {
+                    const isSelected = selectedPointIndex === index;
+                    
+                    return (
+                      <Animated.View
+                        key={index}
+                        style={{
+                          width: isSelected ? animatedValue : 12, // Larger size for selected dot
+                          height: isSelected ? animatedValue : 12,
+                          borderRadius: 12,
+                          backgroundColor: isSelected ? '#4A7676' : '#ffffff',
+                          borderWidth: isSelected ? 0 : 2,
+                          borderColor: 'rgba(74, 118, 118, 1)', // Glowing orange border for selected dots
+                          position: 'absolute',
+                          left: isSelected ? x-4 : x - 6,
+                          top: isSelected ? y-4 : y - 6,
+                          elevation: isSelected ? 8 : 4, // Elevation for better pop effect
+                          shadowColor: '#4A7676',
+                          shadowOffset: { width: 0, height: 5 },
+                          shadowOpacity: 0.3,
+                          shadowRadius: 5,
+                        }}
+                      />
+                    );
+                  }}
+                  formatYLabel={formatTime}
+                  segments={chartData?.data?.length}
+                  onDataPointClick={handleDataPointClick}
+                  style={styles.chart}
+                />
+              </Animated.View>
+              
+              <View style={styles.dateCategory}>
+                {['year', 'month', 'week'].map((key) => (
+                  <Pressable style={{backgroundColor: '#FFFFFF88',}} key={key} onPress={() => handlePress(key)}>
+                    <Animated.View style={[styles.dateGroup, getStyleForGroup(key),{opacity: 1}]}>
+                      <Text style={{ fontFamily: 'OutfitRegular',color:'#404040' }}>
+                        {key.charAt(0).toUpperCase() + key.slice(1)}ly
+                      </Text>
+                    </Animated.View>
+                  </Pressable>
+                ))}
               </View>
             </View>
-          </View>
-          <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',margin: 'auto'}}>
-            <DropDownPicker
-                open={open}
-                value={selectedApp}
-                items={availableApps}
-                setOpen={setOpen}
-                setValue={setSelectedApp}
-                setItems={setAvailableApps}
-                placeholder="Select an App"
-                dropDownContainerStyle={styles.dropdownContainer}
-                style={styles.dropdown}
-                textStyle={styles.dropdownText}
-              />
-          </View>
-      </View>
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.container} >
-        <View style={styles.chartContainer}>
-          <View style={{display: 'flex',alignItems: 'flex-start',width: '100%',marginBottom: 20}}>
-            {selectedPointIndex !== null
-                ? 
-                <View style={{display: 'flex',flexDirection: 'column',width: '100%',justifyContent: 'space-between'}}>
-                  <View style={{marginBottom: 10}}>
-                    <Text style={[styles.chartHeader,{color: '#000'}]}>{chartData.ranges[selectedPointIndex]}</Text>
-                  </View>
-                  <View style={{marginTop: 10,display: 'flex',flexDirection: 'column'}}>
-                    <View style={{marginBottom: 10}}>
-                      <Text style={[styles.chartHeader,{fontSize: 15,color: '#808080'}]}>Screen Time</Text>
-                    </View>
-                    <Text style={[styles.chartHeader,{fontFamily: 'InterHeadingBold',color: '#000'}]}>{formatTime(chartData.data[selectedPointIndex])}</Text>
-                  </View>
-                </View>
-                : chartData.labels.length
-                ? 
-                <View style={{display: 'flex',flexDirection: 'column',width: '100%',justifyContent: 'space-between'}}>
-                  <View style={{marginBottom: 10}}>
-                    <Text style={[styles.chartHeader,{color: '#000'}]}>{chartData.ranges[chartData.labels.length - 1]}</Text>
-                  </View>
-                  <View style={{marginTop: 10}}>
-                    <Text style={[styles.chartHeader,{color: '#000'}]}>{formatTime(chartData.data[chartData.data.length - 1])}</Text>
-                  </View>
-                </View>
-                : 
-                <Text>No data available</Text>}
-          </View>
-          <Animated.View style={{ opacity: animatedOpacity }}>
-            <LineChart
-              data={{
-                labels: updatedLabels.length ? updatedLabels : ['No Data'], // Use updated month names
-                datasets: [{ data: chartData.data.length ? chartData.data : [0] }],
-              }}
-              width={Dimensions.get('window').width * 0.9 - 20} // Parent container's width 90% - padding*2
-              height={200}
-              chartConfig={{
-                backgroundColor: '#fff',
-                backgroundGradientFrom: '#fff',
-                backgroundGradientTo: '#fff',
-                decimalPlaces: 0,
-                color: (opacity) => `rgba(232, 124, 0, 0.7)`,
-                labelColor: (opacity) => `rgba(0, 0, 0, ${opacity})`,
-              }}
-              withDots={true} // Disable default dots
-              // bezier
-              renderDotContent={({ x, y, index }) => {
-                const isSelected = selectedPointIndex === index;
-              
-                return (
-                  <Animated.View
-                    key={index}
-                    style={{
-                      width: isSelected ? animatedValue : 8,
-                      height: isSelected ? animatedValue : 8,
-                      borderRadius: 6,
-                      backgroundColor: isSelected ? '#FF8801' : '#fff',
-                      borderWidth: isSelected ? 0 : 2,
-                      borderColor: 'rgba(255, 163, 58, 1)',
-                      position: 'absolute',
-                      left: x - 4,
-                      top: y - 4,
-                    }}
-                  />
-                );
-              }}
-              formatYLabel={formatTime}
-              segments={chartData.data.length}
-              onDataPointClick={handleDataPointClick}
-              style={styles.chart}
-            />
-          </Animated.View>
-          
-          <View style={styles.dateCategory}>
-            {['year', 'month', 'week'].map((key) => (
-              <Pressable style={{}} key={key} onPress={() => handlePress(key)}>
-                <Animated.View style={[styles.dateGroup, getStyleForGroup(key)]}>
-                  <Text style={{ fontFamily: 'OutfitRegular' }}>
-                    {key.charAt(0).toUpperCase() + key.slice(1)}ly
-                  </Text>
-                </Animated.View>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-        {
-          insights.length
-          ?
-          <View style={{marginTop: 20,display: 'flex',height: width}}>
-            <Carousel
-                loop
-                width={width*0.9}
-                height={width}
-                autoPlay={true}
-                data={[...new Array(3).keys()]}
-                scrollAnimationDuration={2000}
-                onSnapToItem={(index) => {}}
-                renderItem={({ index }) => (
-                    <View
-                        style={{
-                            flex: 1,
-                            borderWidth: 1,
-                            justifyContent: 'center',
-                            backgroundColor: '#fff',
-                            borderRadius: 10,
-                            borderWidth: 0,
-                            // iOS shadow
-                            shadowColor: '#000',
-                            shadowOffset: { width: 0, height: 5 },
-                            shadowOpacity: 0.1,
-                            shadowRadius: 5,
-                            // Android shadow
-                            elevation: 5,
-                            margin: 10,
-                            borderRadius: 10,
-                            
-                        }}
-                    >
-                        {
-                          index==0
-                          ?
-                          <View style={{display: 'flex',justifyContent: 'space-between',alignItems: 'center',height: '100%',borderTopWidth: 4,borderTopColor:'#FF4141',borderRadius: 10}}>
-                            <View style={{isplay: 'flex',justifyContent: 'center',alignItems: 'center',width: '100%',padding: 20}}>
-                              <AntDesign name="exclamationcircle" size={30} color="#FF4141" style={{marginBottom: 20}}/>
-                              <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
-                                In the next 5 years, you will spend
-                              </Text>
-                              <Text style={[styles.stats,{color: 'red'}]}>
-                                {insights[index]?.fiveYearDays} DAYS
-                              </Text>
-                              <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
-                                on your phone.
-                              </Text>
-                            </View>
-                            <Svg height={height} width="100%" style={{}}>
-                              <Defs>
-                                <LinearGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
-                                  <Stop offset="0%" stopColor="#FF4141" stopOpacity="1" />
-                                  <Stop offset="100%" stopColor="#FF4141" stopOpacity="0" />
-                                </LinearGradient>
-                              </Defs>
-                              <Path
-                                d={createSinePath()}
-                                fill="url(#waveGradient)"
-                                stroke="transparent"
-                              />
-                            </Svg>
-                          </View>
-                          : 
-                          (
-                            index==1
-                            ?
-                            (
-                              insights[index]?.percentageChange<0
-                                  ?
-                                <View style={{display: 'flex',justifyContent: 'space-between',alignItems: 'center',borderTopWidth: 4,borderTopColor:'#00C950',borderRadius: 10,height: '100%'}}>
-                                  <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '100%',padding: 20,}}>
-                                      <AntDesign name="checkcircle" size={30} color="#00C950" style={{marginBottom: 20}}/>
-                                      <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
-                                        Your screen time this week
-                                      </Text>
-                                      <Text style={[styles.stats,{color: '#15803D'}]}>
-                                        {insights[index]?.percentageChange}% LOWER
-                                      </Text>
-                                      <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
-                                        than last week.
-                                      </Text>
-                                    </View>
-                                    <Svg height={height} width="100%" style={{}}>
-                                      <Defs>
-                                        <LinearGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
-                                          <Stop offset="0%" stopColor="#00C950" stopOpacity="1" />
-                                          <Stop offset="100%" stopColor="#00C950" stopOpacity="0" />
-                                        </LinearGradient>
-                                      </Defs>
-                                      <Path
-                                        d={createSinePath()}
-                                        fill="url(#waveGradient)"
-                                        stroke="transparent"
-                                      />
-                                    </Svg>
+            {/* {
+              insights.length
+              ?
+              <View style={{marginTop: 20,display: 'flex',height: width}}>
+                <Carousel
+                    loop
+                    width={width*0.9}
+                    height={width}
+                    autoPlay={true}
+                    data={[...new Array(3).keys()]}
+                    scrollAnimationDuration={2000}
+                    onSnapToItem={(index) => {}}
+                    renderItem={({ index }) => (
+                        <View
+                            style={{
+                                flex: 1,
+                                borderWidth: 1,
+                                justifyContent: 'center',
+                                backgroundColor: '#fff',
+                                borderRadius: 10,
+                                borderWidth: 0,
+                                // iOS shadow
+                                shadowColor: '#000',
+                                shadowOffset: { width: 0, height: 5 },
+                                shadowOpacity: 0.1,
+                                shadowRadius: 5,
+                                // Android shadow
+                                elevation: 5,
+                                margin: 10,
+                                borderRadius: 10,
+                                
+                            }}
+                        >
+                            {
+                              index==0
+                              ?
+                              <View style={{display: 'flex',justifyContent: 'space-between',alignItems: 'center',height: '100%',borderTopWidth: 4,borderTopColor:'#FF4141',borderRadius: 10}}>
+                                <View style={{isplay: 'flex',justifyContent: 'center',alignItems: 'center',width: '100%',padding: 20}}>
+                                  <AntDesign name="exclamationcircle" size={30} color="#FF4141" style={{marginBottom: 20}}/>
+                                  <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
+                                    In the next 5 years, you will spend
+                                  </Text>
+                                  <Text style={[styles.stats,{color: 'red'}]}>
+                                    {insights[index]?.fiveYearDays} DAYS
+                                  </Text>
+                                  <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
+                                    on your phone.
+                                  </Text>
                                 </View>
-                                :
-                                (
-                                  insights[index]?.percentageChange>0
-                                  ?
-                                  <View style={{display: 'flex',justifyContent: 'space-between',alignItems: 'center',borderTopWidth: 4,borderTopColor:'red',borderRadius: 10,height: '100%'}}>
-                                    <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '100%',padding: 20,}}>
-                                        <AntDesign name="exclamationcircle" size={30} color="red" style={{marginBottom: 20}}/>
-                                        <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
-                                          Your screen time this week
-                                        </Text>
-                                        <Text style={[styles.stats,{color: 'red'}]}>
-                                          {insights[index]?.percentageChange}% HIGHER
-                                        </Text>
-                                        <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
-                                          than last week.
-                                        </Text>
-                                      </View>
-                                      <Svg height={height} width="100%" style={{}}>
-                                        <Defs>
-                                          <LinearGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
-                                            <Stop offset="0%" stopColor="red" stopOpacity="1" />
-                                            <Stop offset="100%" stopColor="red" stopOpacity="0" />
-                                          </LinearGradient>
-                                        </Defs>
-                                        <Path
-                                          d={createSinePath()}
-                                          fill="url(#waveGradient)"
-                                          stroke="transparent"
-                                        />
-                                      </Svg>
-                                  </View>
-                                  :
-                                  <View style={{display: 'flex',justifyContent: 'space-between',alignItems: 'center',borderTopWidth: 4,borderTopColor:'#404040',borderRadius: 10,height: '100%'}}>
-                                    <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '100%',padding: 20,}}>
-                                        <AntDesign name="checkcircle" size={30} color="#404040" style={{marginBottom: 20}}/>
-                                        <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
-                                          Your screen time this week
-                                        </Text>
-                                        <Text style={styles.stats}>
-                                          {insights[index]?.percentageChange}% HIGHER
-                                        </Text>
-                                        <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
-                                          than last week.
-                                        </Text>
-                                      </View>
-                                      <Svg height={height} width="100%" style={{}}>
-                                        <Defs>
-                                          <LinearGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
-                                            <Stop offset="0%" stopColor="#404040" stopOpacity="1" />
-                                            <Stop offset="100%" stopColor="#404040" stopOpacity="0" />
-                                          </LinearGradient>
-                                        </Defs>
-                                        <Path
-                                          d={createSinePath()}
-                                          fill="url(#waveGradient)"
-                                          stroke="transparent"
-                                        />
-                                      </Svg>
-                                  </View>
-                                )
-                            )
-                            :
-                            <View style={{display: 'flex',justifyContent: 'space-around',alignItems: 'center',borderRadius: 10,height: '100%',padding: 15}}>
-                                <Text style={[styles.message,{color: '#404040',fontFamily: 'OutfitRegular',fontSize: 18}]}>Screen Time Analysis</Text>
-                                <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '90%',paddingVertical: 10,backgroundColor: '#F0FDF4',borderRadius: 10,shadowColor: '#000',
-                                  shadowOffset: { width: 0, height: 5 },
-                                  shadowOpacity: 0.1,
-                                  shadowRadius: 5,
-                                  // Android shadow
-                                  elevation: 5,}}>
-                                    <View style={{display: 'flex',flexDirection: 'row',alignItems: 'center',justifyContent: 'center',marginVertical: 5}}>
-                                      <Text style={{fontFamily: 'OutfitRegular',color: '#404040' }}>Your Best Day</Text>
-                                      <MaterialIcons name="sunny" size={24} color="orange"  style={{marginLeft: 10}}/>
-                                    </View>
-                                    <View style={{marginVertical: 5}}>
-                                      <Text style={[styles.message,{color: '#15803D',fontSize: 18,marginBottom: 0}]}>{insights[index]?.bestDay?.formattedDate}</Text>
-                                    </View>
-                                    <View style={{marginVertical: 5}}>
-                                      <Text style={[styles.message,{color: '#16A34A',fontSize: 25,marginBottom: 0}]}>{Math.floor(insights[index]?.bestDay?.totalScreentime / 60)}h {insights[index]?.bestDay?.totalScreentime % 60}m</Text>
-                                    </View>
-                                </View>
-                                <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '90%',paddingVertical: 10,backgroundColor: '#FEF2F2',borderRadius: 10,shadowColor: '#000',
-                                  shadowOffset: { width: 0, height: 5 },
-                                  shadowOpacity: 0.1,
-                                  shadowRadius: 5,
-                                  // Android shadow
-                                  elevation: 5,
-                                  }}>
-                                    <View style={{display: 'flex',flexDirection: 'row',alignItems: 'center',justifyContent: 'center',marginVertical: 5}}>
-                                      <Text style={{fontFamily: 'OutfitRegular',color: '#404040' }}>Your Worst Day</Text>
-                                      <AntDesign name="exclamationcircle" size={20} color="red" style={{marginLeft: 10}}/>
-                                    </View>
-                                    <View style={{marginVertical: 5}}>
-                                      <Text style={[styles.message,{color: '#B91C1C',fontSize: 18,marginBottom: 0}]}>{insights[index]?.worstDay?.formattedDate}</Text>
-                                    </View>
-                                    <View style={{marginVertical: 5}}>
-                                      <Text style={[styles.message,{color: '#DC2626',fontSize: 25,marginBottom: 0}]}>{Math.floor(insights[index]?.worstDay?.totalScreentime / 60)}h {insights[index]?.bestDay?.totalScreentime % 60}m</Text>
-                                    </View>
-                                </View>
+                                <Svg height={height} width="100%" style={{}}>
+                                  <Defs>
+                                    <LinearGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
+                                      <Stop offset="0%" stopColor="#FF4141" stopOpacity="1" />
+                                      <Stop offset="100%" stopColor="#FF4141" stopOpacity="0" />
+                                    </LinearGradient>
+                                  </Defs>
+                                  <Path
+                                    d={createSinePath()}
+                                    fill="url(#waveGradient)"
+                                    stroke="transparent"
+                                  />
+                                </Svg>
                               </View>
-                          )
-                        }
-                    </View>
-                )}
-            />
-          </View>
-          :
-          <View></View>
-        }
-      </ScrollView>
-    </SafeAreaView>
+                              : 
+                              (
+                                index==1
+                                ?
+                                (
+                                  insights[index]?.percentageChange<0
+                                      ?
+                                    <View style={{display: 'flex',justifyContent: 'space-between',alignItems: 'center',borderTopWidth: 4,borderTopColor:'#00C950',borderRadius: 10,height: '100%'}}>
+                                      <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '100%',padding: 20,}}>
+                                          <AntDesign name="checkcircle" size={30} color="#00C950" style={{marginBottom: 20}}/>
+                                          <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
+                                            Your screen time this week
+                                          </Text>
+                                          <Text style={[styles.stats,{color: '#15803D'}]}>
+                                            {insights[index]?.percentageChange}% LOWER
+                                          </Text>
+                                          <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
+                                            than last week.
+                                          </Text>
+                                        </View>
+                                        <Svg height={height} width="100%" style={{}}>
+                                          <Defs>
+                                            <LinearGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
+                                              <Stop offset="0%" stopColor="#00C950" stopOpacity="1" />
+                                              <Stop offset="100%" stopColor="#00C950" stopOpacity="0" />
+                                            </LinearGradient>
+                                          </Defs>
+                                          <Path
+                                            d={createSinePath()}
+                                            fill="url(#waveGradient)"
+                                            stroke="transparent"
+                                          />
+                                        </Svg>
+                                    </View>
+                                    :
+                                    (
+                                      insights[index]?.percentageChange>0
+                                      ?
+                                      <View style={{display: 'flex',justifyContent: 'space-between',alignItems: 'center',borderTopWidth: 4,borderTopColor:'red',borderRadius: 10,height: '100%'}}>
+                                        <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '100%',padding: 20,}}>
+                                            <AntDesign name="exclamationcircle" size={30} color="red" style={{marginBottom: 20}}/>
+                                            <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
+                                              Your screen time this week
+                                            </Text>
+                                            <Text style={[styles.stats,{color: 'red'}]}>
+                                              {insights[index]?.percentageChange}% HIGHER
+                                            </Text>
+                                            <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
+                                              than last week.
+                                            </Text>
+                                          </View>
+                                          <Svg height={height} width="100%" style={{}}>
+                                            <Defs>
+                                              <LinearGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
+                                                <Stop offset="0%" stopColor="red" stopOpacity="1" />
+                                                <Stop offset="100%" stopColor="red" stopOpacity="0" />
+                                              </LinearGradient>
+                                            </Defs>
+                                            <Path
+                                              d={createSinePath()}
+                                              fill="url(#waveGradient)"
+                                              stroke="transparent"
+                                            />
+                                          </Svg>
+                                      </View>
+                                      :
+                                      <View style={{display: 'flex',justifyContent: 'space-between',alignItems: 'center',borderTopWidth: 4,borderTopColor:'#404040',borderRadius: 10,height: '100%'}}>
+                                        <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '100%',padding: 20,}}>
+                                            <AntDesign name="checkcircle" size={30} color="#404040" style={{marginBottom: 20}}/>
+                                            <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
+                                              Your screen time this week
+                                            </Text>
+                                            <Text style={styles.stats}>
+                                              {insights[index]?.percentageChange}% HIGHER
+                                            </Text>
+                                            <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
+                                              than last week.
+                                            </Text>
+                                          </View>
+                                          <Svg height={height} width="100%" style={{}}>
+                                            <Defs>
+                                              <LinearGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
+                                                <Stop offset="0%" stopColor="#404040" stopOpacity="1" />
+                                                <Stop offset="100%" stopColor="#404040" stopOpacity="0" />
+                                              </LinearGradient>
+                                            </Defs>
+                                            <Path
+                                              d={createSinePath()}
+                                              fill="url(#waveGradient)"
+                                              stroke="transparent"
+                                            />
+                                          </Svg>
+                                      </View>
+                                    )
+                                )
+                                :
+                                <View style={{display: 'flex',justifyContent: 'space-around',alignItems: 'center',borderRadius: 10,height: '100%',padding: 15}}>
+                                    <Text style={[styles.message,{color: '#404040',fontFamily: 'OutfitRegular',fontSize: 18}]}>Screen Time Analysis</Text>
+                                    <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '90%',paddingVertical: 10,backgroundColor: '#F0FDF4',borderRadius: 10,shadowColor: '#000',
+                                      shadowOffset: { width: 0, height: 5 },
+                                      shadowOpacity: 0.1,
+                                      shadowRadius: 5,
+                                      // Android shadow
+                                      elevation: 5,}}>
+                                        <View style={{display: 'flex',flexDirection: 'row',alignItems: 'center',justifyContent: 'center',marginVertical: 5}}>
+                                          <Text style={{fontFamily: 'OutfitRegular',color: '#404040' }}>Your Best Day</Text>
+                                          <MaterialIcons name="sunny" size={24} color="orange"  style={{marginLeft: 10}}/>
+                                        </View>
+                                        <View style={{marginVertical: 5}}>
+                                          <Text style={[styles.message,{color: '#15803D',fontSize: 18,marginBottom: 0}]}>{insights[index]?.bestDay?.formattedDate}</Text>
+                                        </View>
+                                        <View style={{marginVertical: 5}}>
+                                          <Text style={[styles.message,{color: '#16A34A',fontSize: 25,marginBottom: 0}]}>{Math.floor(insights[index]?.bestDay?.totalScreentime / 60)}h {insights[index]?.bestDay?.totalScreentime % 60}m</Text>
+                                        </View>
+                                    </View>
+                                    <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '90%',paddingVertical: 10,backgroundColor: '#FEF2F2',borderRadius: 10,shadowColor: '#000',
+                                      shadowOffset: { width: 0, height: 5 },
+                                      shadowOpacity: 0.1,
+                                      shadowRadius: 5,
+                                      // Android shadow
+                                      elevation: 5,
+                                      }}>
+                                        <View style={{display: 'flex',flexDirection: 'row',alignItems: 'center',justifyContent: 'center',marginVertical: 5}}>
+                                          <Text style={{fontFamily: 'OutfitRegular',color: '#404040' }}>Your Worst Day</Text>
+                                          <AntDesign name="exclamationcircle" size={20} color="red" style={{marginLeft: 10}}/>
+                                        </View>
+                                        <View style={{marginVertical: 5}}>
+                                          <Text style={[styles.message,{color: '#B91C1C',fontSize: 18,marginBottom: 0}]}>{insights[index]?.worstDay?.formattedDate}</Text>
+                                        </View>
+                                        <View style={{marginVertical: 5}}>
+                                          <Text style={[styles.message,{color: '#DC2626',fontSize: 25,marginBottom: 0}]}>{Math.floor(insights[index]?.worstDay?.totalScreentime / 60)}h {insights[index]?.bestDay?.totalScreentime % 60}m</Text>
+                                        </View>
+                                    </View>
+                                  </View>
+                              )
+                            }
+                        </View>
+                    )}
+                />
+              </View>
+              :
+              <View></View>
+            } */}
+          </ScrollView>
+    </LinearGradient>
   )
 }
 
@@ -898,22 +920,27 @@ export default AccountPage
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#f9fbfa',
+    flex: 1,
+    // justifyContent: 'center',
     alignItems: 'center',
-    margin: 'auto',
-    flexDirection: 'column',
+    paddingTop: 50,
+  },
+  scrollContent: {
     width: '100%',
-    paddingBottom: 100,
+    paddingBottom: 100, // Adjust this to leave space above the navbar
+    alignItems: 'center', // Center content if needed,
+    marginHorizontal: 20,
+    paddingTop: 0
   },
   header: {
     display: 'flex',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: '90%',
+    width: '100%',
     marginBottom: 20
   },
   chart: {
-    marginVertical: 8,
+    marginVertical: 12,
   },
   label: {
     fontSize: 18,
@@ -921,56 +948,54 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   chartHeader: {
-    fontFamily: 'OutfitMedium',
+    fontFamily: 'OutfitRegular',
     color: '#404040',
     fontSize: 22
   },
   dateCategory: {
     display: 'flex',
     flexDirection: 'row',
-    width: '90%',
     padding: 5,
     borderRadius: 10,
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
+    margin: 'auto',
     backgroundColor: '#fff',
 
     // iOS shadow
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 5,
     // Android shadow
     elevation: 5,
   },
   dateGroup: {
-    backgroundColor: '#f5f4f4',
+    backgroundColor: '#FFFFFF88',
     padding: 10,
     paddingHorizontal: 15,
     borderRadius: 5,
+    marginHorizontal: 2
   },
   dropdown: {
-    width: '90%',
-    borderRadius: 5,
-    marginBottom: 20,
-    backgroundColor: '#fff',
-    borderWidth: 0,
+    width: '100%',
 
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
     margin: 'auto',
 
-    // iOS shadow
+    backgroundColor: '#FFFFFF88',
+    borderRadius: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
     shadowRadius: 5,
-    // Android shadow
     elevation: 5,
+    borderWidth: 0,
   },
   dropdownContainer: {
-    width: '90%',
+    width: '100%',
     borderWidth: 0,
     marginTop: 15,
     padding: 10,
@@ -980,11 +1005,10 @@ const styles = StyleSheet.create({
     // iOS shadow
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 5,
     // Android shadow
     elevation: 5,
-    
     minHeight: 250,
   },
   dropdownText: {
@@ -1003,17 +1027,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#f5f4f4',
-    width: '90%',
-    borderRadius: 10,
-    padding: 15,
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderRadius: 20,
+    paddingVertical: 15,
+    marginTop: 20,
+    paddingHorizontal: 10,
 
-    // iOS shadow
+    width: '100%',
+    
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
     shadowRadius: 5,
     // Android shadow
     elevation: 5,
@@ -1028,7 +1051,7 @@ const styles = StyleSheet.create({
   stats: {
     fontSize: 35,
     color: '#000',
-    fontFamily: 'InterHeadingBold',
+    fontFamily: 'OutfitSemiBold',
     marginBottom: 10,
     textAlign: 'center'
   },
