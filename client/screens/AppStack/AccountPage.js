@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { StyleSheet, Text, View, Dimensions, Pressable,Image, Animated, KeyboardAvoidingView, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, Dimensions, Pressable,Image, Animated, KeyboardAvoidingView, ScrollView ,TouchableWithoutFeedback} from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import DropDownPicker from 'react-native-dropdown-picker';
 import dayjs from 'dayjs';
@@ -17,7 +17,7 @@ import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import isBetween from 'dayjs/plugin/isBetween';
 import Carousel from 'react-native-reanimated-carousel';
-import Svg, { Path, Stop, Defs } from 'react-native-svg';
+import Svg, { Path,LinearGradient as SvgGradient, Stop, Defs } from 'react-native-svg';
 import utc from 'dayjs/plugin/utc';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -125,7 +125,7 @@ const AccountPage = () => {
     const avgDaily = calculateAverageScreentime(data);
     const { bestDay, worstDay } = findBestAndWorstDays(data);
     const { currentWeekData, lastWeekData } = getWeekData(data);
-    const percentageChange = (calculatePercentageChange(currentWeekData, lastWeekData))?.toFixed(2);
+    const percentageChange = (calculatePercentageChange(currentWeekData, lastWeekData));
     const { totalDays: fiveYearDays } = calculateProjectedScreentime(avgDaily, 5);
     const { totalDays: fiftyYearDays } = calculateProjectedScreentime(avgDaily, 50);
 
@@ -155,7 +155,7 @@ const AccountPage = () => {
   
     if (previousTotal === 0) return null; // Avoid division by zero
   
-    return ((currentTotal - previousTotal) / previousTotal) * 100;
+    return parseInt(((currentTotal - previousTotal) / previousTotal) * 100);
   };
 
   const findBestAndWorstDays = (data) => {
@@ -177,8 +177,8 @@ const AccountPage = () => {
     const today = dayjs();
   
     // Define the start and end of the current week
-    const currentWeekStart = today.startOf('week');
-    const currentWeekEnd = today.endOf('week');
+    const currentWeekStart = today.startOf('isoweek');
+    const currentWeekEnd = today.endOf('isoweek');
   
     // Define the start and end of the last week
     const lastWeekStart = currentWeekStart.subtract(1, 'week');
@@ -279,15 +279,24 @@ const AccountPage = () => {
       const group = groupingStrategies[groupBy](item.date);
   
       if (!group) return acc; // Skip data that doesn't fit the selected grouping strategy
-  
+      
+      console.log("group",group)
       const { weekLabel, weekRange, weekStartDate } = group;
   
       const label = groupBy === 'week' ? weekLabel : groupBy === 'month' ? `${group[0]}-${group[1]}` : group;
   
       if (!acc[label]) acc[label] = { screentime: 0, range: weekRange || group };
   
-      acc[label].screentime += item.totalScreentime;
-      acc[label].range = weekRange || group;
+      if (selectedApp === 'All Apps') {
+        acc[label].screentime += item.totalScreentime;
+        acc[label].range = weekRange || group;
+      } else {
+        const appScreentime = item.apps.find((app) => app.name === selectedApp);
+        if (appScreentime){
+          acc[label].screentime += appScreentime.totalMinutes;
+          acc[label].range = weekRange || group;
+        }
+      }
   
       if (weekStartDate) acc[label].weekStartDate = weekStartDate;
   
@@ -480,7 +489,7 @@ const AccountPage = () => {
       return label; // Fallback, keep other labels unchanged
     }
   });  
-
+  console.log("insights",insights)
   return (
       <LinearGradient
               colors={['#E7F6F6', '#FBEFEF', '#F9FBFA']}
@@ -592,18 +601,20 @@ const AccountPage = () => {
               </View>
               </View>
               <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',margin: 'auto',backgroundColor: '#fff',padding: 15,borderRadius: 20}}>
-                <DropDownPicker
-                    open={open}
-                    value={selectedApp}
-                    items={availableApps}
-                    setOpen={setOpen}
-                    setValue={setSelectedApp}
-                    setItems={setAvailableApps}
-                    placeholder="Select an App"
-                    dropDownContainerStyle={styles.dropdownContainer}
-                    style={styles.dropdown}
-                    textStyle={styles.dropdownText}
-                  />
+                <TouchableWithoutFeedback onPress={() => setOpen(false)}>
+                  <DropDownPicker
+                      open={open}
+                      value={selectedApp}
+                      items={availableApps}
+                      setOpen={setOpen}
+                      setValue={setSelectedApp}
+                      setItems={setAvailableApps}
+                      placeholder="Select an App"
+                      dropDownContainerStyle={styles.dropdownContainer}
+                      style={styles.dropdown}
+                      textStyle={styles.dropdownText}
+                    />
+                </TouchableWithoutFeedback>
               </View>
           </View>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -705,7 +716,7 @@ const AccountPage = () => {
                 ))}
               </View>
             </View>
-            {/* {
+            {
               insights.length
               ?
               <View style={{marginTop: 20,display: 'flex',height: width}}>
@@ -717,7 +728,8 @@ const AccountPage = () => {
                     data={[...new Array(3).keys()]}
                     scrollAnimationDuration={2000}
                     onSnapToItem={(index) => {}}
-                    renderItem={({ index }) => (
+                    renderItem={({ index }) => {
+                      return(
                         <View
                             style={{
                                 flex: 1,
@@ -748,7 +760,7 @@ const AccountPage = () => {
                                     In the next 5 years, you will spend
                                   </Text>
                                   <Text style={[styles.stats,{color: 'red'}]}>
-                                    {insights[index]?.fiveYearDays} DAYS
+                                    {insights?.[0]?.fiveYearDays} DAYS
                                   </Text>
                                   <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
                                     on your phone.
@@ -756,10 +768,10 @@ const AccountPage = () => {
                                 </View>
                                 <Svg height={height} width="100%" style={{}}>
                                   <Defs>
-                                    <LinearGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <SvgGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
                                       <Stop offset="0%" stopColor="#FF4141" stopOpacity="1" />
                                       <Stop offset="100%" stopColor="#FF4141" stopOpacity="0" />
-                                    </LinearGradient>
+                                    </SvgGradient>
                                   </Defs>
                                   <Path
                                     d={createSinePath()}
@@ -773,16 +785,16 @@ const AccountPage = () => {
                                 index==1
                                 ?
                                 (
-                                  insights[index]?.percentageChange<0
+                                  insights?.[index]?.percentageChange<0
                                       ?
                                     <View style={{display: 'flex',justifyContent: 'space-between',alignItems: 'center',borderTopWidth: 4,borderTopColor:'#00C950',borderRadius: 10,height: '100%'}}>
                                       <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '100%',padding: 20,}}>
                                           <AntDesign name="checkcircle" size={30} color="#00C950" style={{marginBottom: 20}}/>
                                           <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
-                                            Your screen time this week
+                                            Your screen time this week was
                                           </Text>
                                           <Text style={[styles.stats,{color: '#15803D'}]}>
-                                            {insights[index]?.percentageChange}% LOWER
+                                            {insights?.[1]?.percentageChange}% LOWER
                                           </Text>
                                           <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
                                             than last week.
@@ -790,10 +802,10 @@ const AccountPage = () => {
                                         </View>
                                         <Svg height={height} width="100%" style={{}}>
                                           <Defs>
-                                            <LinearGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
+                                            <SvgGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
                                               <Stop offset="0%" stopColor="#00C950" stopOpacity="1" />
                                               <Stop offset="100%" stopColor="#00C950" stopOpacity="0" />
-                                            </LinearGradient>
+                                            </SvgGradient>
                                           </Defs>
                                           <Path
                                             d={createSinePath()}
@@ -804,16 +816,16 @@ const AccountPage = () => {
                                     </View>
                                     :
                                     (
-                                      insights[index]?.percentageChange>0
+                                      insights?.[index]?.percentageChange>0
                                       ?
                                       <View style={{display: 'flex',justifyContent: 'space-between',alignItems: 'center',borderTopWidth: 4,borderTopColor:'red',borderRadius: 10,height: '100%'}}>
                                         <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '100%',padding: 20,}}>
                                             <AntDesign name="exclamationcircle" size={30} color="red" style={{marginBottom: 20}}/>
                                             <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
-                                              Your screen time this week
+                                              Your screen time this week was
                                             </Text>
                                             <Text style={[styles.stats,{color: 'red'}]}>
-                                              {insights[index]?.percentageChange}% HIGHER
+                                              {insights?.[1]?.percentageChange}% HIGHER
                                             </Text>
                                             <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
                                               than last week.
@@ -821,10 +833,10 @@ const AccountPage = () => {
                                           </View>
                                           <Svg height={height} width="100%" style={{}}>
                                             <Defs>
-                                              <LinearGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
+                                              <SvgGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
                                                 <Stop offset="0%" stopColor="red" stopOpacity="1" />
                                                 <Stop offset="100%" stopColor="red" stopOpacity="0" />
-                                              </LinearGradient>
+                                              </SvgGradient>
                                             </Defs>
                                             <Path
                                               d={createSinePath()}
@@ -838,10 +850,10 @@ const AccountPage = () => {
                                         <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '100%',padding: 20,}}>
                                             <AntDesign name="checkcircle" size={30} color="#404040" style={{marginBottom: 20}}/>
                                             <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
-                                              Your screen time this week
+                                              Your screen time this week was
                                             </Text>
                                             <Text style={styles.stats}>
-                                              {insights[index]?.percentageChange}% HIGHER
+                                              {insights?.[1]?.percentageChange}% HIGHER
                                             </Text>
                                             <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
                                               than last week.
@@ -849,10 +861,10 @@ const AccountPage = () => {
                                           </View>
                                           <Svg height={height} width="100%" style={{}}>
                                             <Defs>
-                                              <LinearGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
+                                              <SvgGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
                                                 <Stop offset="0%" stopColor="#404040" stopOpacity="1" />
                                                 <Stop offset="100%" stopColor="#404040" stopOpacity="0" />
-                                              </LinearGradient>
+                                              </SvgGradient>
                                             </Defs>
                                             <Path
                                               d={createSinePath()}
@@ -865,25 +877,34 @@ const AccountPage = () => {
                                 )
                                 :
                                 <View style={{display: 'flex',justifyContent: 'space-around',alignItems: 'center',borderRadius: 10,height: '100%',padding: 15}}>
-                                    <Text style={[styles.message,{color: '#404040',fontFamily: 'OutfitRegular',fontSize: 18}]}>Screen Time Analysis</Text>
-                                    <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '90%',paddingVertical: 10,backgroundColor: '#F0FDF4',borderRadius: 10,shadowColor: '#000',
+                                    <Text style={[styles.message,{color: '#404040',fontFamily: 'OutfitMedium',fontSize: 20}]}>Screen Time Analysis</Text>
+                                    <View style={{display: 'flex',justifyContent: 'space-between',paddingHorizontal: 15,flexDirection: 'row',alignItems: 'center',width: '95%',paddingVertical: 10,backgroundColor: '#FFFFFF88',borderRadius: 10,shadowColor: '#000',
                                       shadowOffset: { width: 0, height: 5 },
                                       shadowOpacity: 0.1,
                                       shadowRadius: 5,
                                       // Android shadow
                                       elevation: 5,}}>
                                         <View style={{display: 'flex',flexDirection: 'row',alignItems: 'center',justifyContent: 'center',marginVertical: 5}}>
-                                          <Text style={{fontFamily: 'OutfitRegular',color: '#404040' }}>Your Best Day</Text>
-                                          <MaterialIcons name="sunny" size={24} color="orange"  style={{marginLeft: 10}}/>
+                                          <Text style={{fontFamily: 'OutfitRegular',color: '#404040' }}> Daily Average</Text>
                                         </View>
                                         <View style={{marginVertical: 5}}>
-                                          <Text style={[styles.message,{color: '#15803D',fontSize: 18,marginBottom: 0}]}>{insights[index]?.bestDay?.formattedDate}</Text>
-                                        </View>
-                                        <View style={{marginVertical: 5}}>
-                                          <Text style={[styles.message,{color: '#16A34A',fontSize: 25,marginBottom: 0}]}>{Math.floor(insights[index]?.bestDay?.totalScreentime / 60)}h {insights[index]?.bestDay?.totalScreentime % 60}m</Text>
+                                          <Text style={[styles.message,{color: '#404040',fontSize: 25,marginBottom: 0}]}>{formatTime(insights?.[0]?.avgDaily)}</Text>
                                         </View>
                                     </View>
-                                    <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',width: '90%',paddingVertical: 10,backgroundColor: '#FEF2F2',borderRadius: 10,shadowColor: '#000',
+                                    <View style={{display: 'flex',justifyContent: 'space-between',paddingHorizontal: 15,flexDirection: 'row',alignItems: 'center',width: '95%',paddingVertical: 10,backgroundColor: '#F0FDF4',borderRadius: 10,shadowColor: '#000',
+                                      shadowOffset: { width: 0, height: 5 },
+                                      shadowOpacity: 0.1,
+                                      shadowRadius: 5,
+                                      // Android shadow
+                                      elevation: 5,}}>
+                                        <View style={{display: 'flex',flexDirection: 'row',alignItems: 'center',justifyContent: 'center',marginVertical: 5}}>
+                                          <Text style={{fontFamily: 'OutfitRegular',color: '#404040' }}> Lowest Screen Time</Text>
+                                        </View>
+                                        <View style={{marginVertical: 5}}>
+                                          <Text style={[styles.message,{color: '#16A34A',fontSize: 25,marginBottom: 0}]}>{Math.floor(insights?.[2]?.bestDay?.totalScreentime / 60)}h {insights?.[index]?.bestDay?.totalScreentime % 60}m</Text>
+                                        </View>
+                                    </View>
+                                    <View style={{display: 'flex',justifyContent: 'space-between',paddingHorizontal: 15,flexDirection: 'row',alignItems: 'center',width: '95%',paddingVertical: 10,backgroundColor: '#FEF2F2',borderRadius: 10,shadowColor: '#000',
                                       shadowOffset: { width: 0, height: 5 },
                                       shadowOpacity: 0.1,
                                       shadowRadius: 5,
@@ -891,26 +912,23 @@ const AccountPage = () => {
                                       elevation: 5,
                                       }}>
                                         <View style={{display: 'flex',flexDirection: 'row',alignItems: 'center',justifyContent: 'center',marginVertical: 5}}>
-                                          <Text style={{fontFamily: 'OutfitRegular',color: '#404040' }}>Your Worst Day</Text>
-                                          <AntDesign name="exclamationcircle" size={20} color="red" style={{marginLeft: 10}}/>
+                                          <Text style={{fontFamily: 'OutfitRegular',color: '#404040' }}>Highest Screen Time</Text>
                                         </View>
                                         <View style={{marginVertical: 5}}>
-                                          <Text style={[styles.message,{color: '#B91C1C',fontSize: 18,marginBottom: 0}]}>{insights[index]?.worstDay?.formattedDate}</Text>
-                                        </View>
-                                        <View style={{marginVertical: 5}}>
-                                          <Text style={[styles.message,{color: '#DC2626',fontSize: 25,marginBottom: 0}]}>{Math.floor(insights[index]?.worstDay?.totalScreentime / 60)}h {insights[index]?.bestDay?.totalScreentime % 60}m</Text>
+                                          <Text style={[styles.message,{color: '#DC2626',fontSize: 25,marginBottom: 0}]}>{Math.floor(insights?.[2]?.worstDay?.totalScreentime / 60)}h {insights[index]?.bestDay?.totalScreentime % 60}m</Text>
                                         </View>
                                     </View>
                                   </View>
                               )
                             }
                         </View>
-                    )}
+                      )
+                    }}
                 />
               </View>
               :
               <View></View>
-            } */}
+            }
           </ScrollView>
     </LinearGradient>
   )

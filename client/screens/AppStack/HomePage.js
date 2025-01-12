@@ -470,7 +470,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     width: '95%',
-    padding: 20,
+    padding: 10,
     paddingBottom: 100, // Adjust this to leave space above the navbar
     alignItems: 'center', // Center content if needed,
     paddingTop: 40
