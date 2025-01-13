@@ -30,12 +30,13 @@ import CircularProgress from 'react-native-circular-progress-indicator';
 import { BlurView } from 'expo-blur';
 import { useNavigation } from '@react-navigation/native'; 
 import LoadingScreen from '../../components/LoadingScreen';
+import AppList from '../../AppList.json';
 
 const LogTime = ({ setIsNavbarVisible }) => {
   const { width } = Dimensions.get('window');
   const navigation = useNavigation(); 
 
-  const { fetchUserDetails, submitScreentime } = useAuth();
+  const { fetchUserDetails, submitScreentime,fetchScreentime } = useAuth();
   const [date, setDate] = useState(null);
   const [displayDate, setDisplayDate] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -48,6 +49,9 @@ const LogTime = ({ setIsNavbarVisible }) => {
   const [btnDisabled,setBtnDisabled] = useState(true);
   const [convertedTimeLimit,setConvertedTimeLimit] = useState(null);
   const [remainingTime,setRemainingTime] = useState(0);
+  const [todaysData,setTodaysData] = useState(null);
+  const [transformedData,setTransformedData] = useState(null);
+  const [edit,setEdit] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const loadingAnim = new Animated.Value(0); // Initial opacity 0
@@ -125,12 +129,50 @@ const LogTime = ({ setIsNavbarVisible }) => {
     }, [fadeAnim, slideAnim]) // Add dependencies if necessary
   );
 
+  const transformScreentimeData = (screentime) => {
+    const { apps, totalScreentime, date } = screentime;
+  
+    const appDetails = Object.entries(apps).map(([appId, time]) => {
+      const appInfo = AppList.find((app) => app.id === appId) || {
+        appName: 'Unknown App',
+        appIconUrl: '', // Default empty icon if not found
+      };
+  
+      return {
+        id: appId,
+        name: appInfo.appName,
+        appIconUrl: appInfo.appIconUrl, // Add appIconUrl
+        hours: Number(time.hours),
+        minutes: Number(time.minutes),
+        totalMinutes: Number(time.hours) * 60 + Number(time.minutes),
+      };
+    });
+  
+    return {
+      date: dayjs(date).format('YYYY-MM-DD'),
+      totalScreentime: Number(totalScreentime),
+      apps: appDetails,
+    };
+  };
+
+  const getTodaysData = (transformedData,date) => {
+    const today = dayjs(date).format('YYYY-MM-DD');
+  
+    const todaysData = transformedData.find((record) => record.date === today);
+  
+    return todaysData || null; 
+  };
+
   const fetchData = async () => {
     try {
       const userDetails = await fetchUserDetails();
+      const records = await fetchScreentime();
+      const transformedData = records.map(transformScreentimeData);
+
       const timeLimit = userDetails?.data?.screentimeLimit*60;
       const convertedTimeLimit = convertTime(userDetails?.data?.screentimeLimit*60);
 
+      setTransformedData(transformedData);
       setUserData(userDetails?.data);
       setScreentimeLimit(timeLimit);
       setConvertedTimeLimit(convertedTimeLimit);
@@ -251,10 +293,32 @@ const LogTime = ({ setIsNavbarVisible }) => {
       }
   };
 
+  useEffect(()=>{
+    if(transformedData){
+      const todaysData = getTodaysData(transformedData,date);
 
-  // useEffect(() => {
-  //   fetchData();
-  // }, []);
+      if(todaysData){
+        setScreentimeHours(String(Math.floor(todaysData.totalScreentime/60)));
+        setScreentimeMinutes(String(todaysData.totalScreentime%60));
+        setTodaysData(todaysData);
+        setEdit(true);
+
+        const todaysAppValues = todaysData?.apps;
+
+        if(todaysAppValues){
+          todaysAppValues.map(app => {
+            handleInputChange(app.id, 'hours','minutes', String(app.hours),String(app.minutes));
+          })
+        }
+      }
+      else{
+        setScreentimeHours(0);
+        setScreentimeMinutes(0);
+        setEdit(false);
+        setInputValues({});
+      }
+    }
+  },[date,transformedData])
 
   useEffect(()=>{
     Animated.timing(marginTop, {
@@ -291,10 +355,6 @@ const LogTime = ({ setIsNavbarVisible }) => {
   }
   if(userData){
     return (
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <LinearGradient
             colors={['#E7F6F6', '#FBEFEF', '#F9FBFA']}
@@ -444,7 +504,7 @@ const LogTime = ({ setIsNavbarVisible }) => {
   
                 <View style={[styles.timeInputContainer,styles.shadow]}>
                   <View style={{marginBottom: 20,display: 'flex',flexDirection: 'column',justifyContent: 'center'}}>
-                    <Text style={[styles.label,{fontSize: 22,fontFamily: 'OutfitMedium'}]}>Screen Time</Text>
+                    <Text style={[styles.label,{fontSize: 22,fontFamily: 'OutfitMedium'}]}>{edit ? 'Update ' : ''}Screen Time</Text>
                     <View style={{}}>
                       <Text style={[styles.label,{fontSize: 16,fontFamily: 'OutfitRegular',textAlign: 'center'}]}>Limit : {convertedTimeLimit}</Text>
                     </View>
@@ -570,9 +630,11 @@ const LogTime = ({ setIsNavbarVisible }) => {
                   </View>
                   {userData?.selectedApps.map(app => {
                     const appValues = inputValues[app.id] || { hours: '0', minutes: '0' };
-                    let hours = appValues.hours;
-                    let mins = appValues.minutes;
-  
+                    
+
+                    let hours = String(appValues.hours);
+                    let mins = String(appValues.minutes);
+
                     if(!hours) hours = 0;
                     if(!mins) mins = 0;
                     return (
@@ -631,14 +693,13 @@ const LogTime = ({ setIsNavbarVisible }) => {
                   </Pressable>
                   :
                   <Pressable onPress={handleSubmit} style={[styles.submitButton,styles.shadow]}>
-                    <Text style={[styles.label,{textAlign: 'center',color: '#fff',marginBottom: 0,fontFamily: 'OutfitMedium'}]}>Log</Text>
+                    <Text style={[styles.label,{textAlign: 'center',color: '#fff',marginBottom: 0,fontFamily: 'OutfitMedium'}]}>{edit ? 'Update' : 'Log'}</Text>
                   </Pressable>
                 }
               </Animated.View>
             </ScrollView>
           </LinearGradient>
         </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
     );
   }
   else{
@@ -656,8 +717,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 10,
-    marginTop: 20
+    padding: 20,
+    paddingTop: 50,
   },
   datePickerContainer: {
       marginBottom: 30,
