@@ -31,6 +31,7 @@ import { BlurView } from 'expo-blur';
 import { useNavigation } from '@react-navigation/native'; 
 import LoadingScreen from '../../components/LoadingScreen';
 import AppList from '../../AppList.json';
+import _ from 'lodash';
 
 const LogTime = ({ setIsNavbarVisible }) => {
   const { width } = Dimensions.get('window');
@@ -52,6 +53,10 @@ const LogTime = ({ setIsNavbarVisible }) => {
   const [todaysData,setTodaysData] = useState(null);
   const [transformedData,setTransformedData] = useState(null);
   const [edit,setEdit] = useState(false);
+  const [isUpdateAllowed,setIsUpdateAllowed] = useState(false);
+
+  const [originalScreentime, setOriginalScreentime] = useState(0);
+  const [originalAppValues,setOriginalAppValues] = useState({});
 
   const [isLoading, setIsLoading] = useState(false);
   const loadingAnim = new Animated.Value(0); // Initial opacity 0
@@ -181,6 +186,17 @@ const LogTime = ({ setIsNavbarVisible }) => {
     }
   };
 
+  const updateInputChange = (id, field_1,field_2, value_1,value_2) => {
+    setInputValues((prevValues) => ({
+      ...prevValues,
+      [id]: {
+          ...prevValues[id],
+          [field_1]: value_1,
+          [field_2]: value_2,
+      },
+  }));
+  }
+
   const handleInputChange = (id, field_1,field_2, value_1,value_2) => {
     if(!inputValues[id]?.[field_2]){
       setInputValues((prevValues) => ({
@@ -294,10 +310,15 @@ const LogTime = ({ setIsNavbarVisible }) => {
   };
 
   useEffect(()=>{
+    setInputValues({});
+    setIsUpdateAllowed(false);
+    setOriginalAppValues({});
+    setOriginalScreentime(0);
+
     if(transformedData){
       const todaysData = getTodaysData(transformedData,date);
 
-      if(todaysData){
+      if(todaysData!=null){
         setScreentimeHours(String(Math.floor(todaysData.totalScreentime/60)));
         setScreentimeMinutes(String(todaysData.totalScreentime%60));
         setTodaysData(todaysData);
@@ -305,9 +326,20 @@ const LogTime = ({ setIsNavbarVisible }) => {
 
         const todaysAppValues = todaysData?.apps;
 
+        let appValues = todaysAppValues.reduce((acc, app) => {
+          acc[app.id] = {
+            hours: `${app.hours}`,
+            minutes: `${app.minutes}`,
+          };
+          return acc;
+        }, {});
+        
+        setOriginalAppValues(appValues);
+        setOriginalScreentime(todaysData.totalScreentime);
+
         if(todaysAppValues){
           todaysAppValues.map(app => {
-            handleInputChange(app.id, 'hours','minutes', String(app.hours),String(app.minutes));
+            updateInputChange(app.id, 'hours','minutes', String(app.hours),String(app.minutes));
           })
         }
       }
@@ -318,7 +350,27 @@ const LogTime = ({ setIsNavbarVisible }) => {
         setInputValues({});
       }
     }
-  },[date,transformedData])
+  },[date,transformedData]);
+
+
+  useEffect(()=>{
+    if(isValidAppTime()) setBtnDisabled(false);
+    else setBtnDisabled(true);
+
+    let totalMinutes = Number(screentimeHours*60) + Number(screentimeMinutes);
+
+    const areEqual = _.isEqual(
+      _.sortBy(originalAppValues, Object.keys),
+      _.sortBy(inputValues, Object.keys)
+    );
+
+    if(((Number(originalScreentime))!=Number(totalMinutes)) || !areEqual){
+      setIsUpdateAllowed(true);
+    }
+    else{
+      setIsUpdateAllowed(false);
+    }
+  },[inputValues])
 
   useEffect(()=>{
     Animated.timing(marginTop, {
@@ -344,11 +396,6 @@ const LogTime = ({ setIsNavbarVisible }) => {
       setProgressValue(remainder);
     }
   },[screentimeHours,screentimeMinutes]);
-
-  useEffect(()=>{
-    if(isValidAppTime()) setBtnDisabled(false);
-    else setBtnDisabled(true);
-  },[inputValues])
 
   if(isLoading){
     return <LoadingScreen navigationType='Submit'/>
@@ -686,15 +733,31 @@ const LogTime = ({ setIsNavbarVisible }) => {
                   })}
                 </View>
                 {
-                  btnDisabled
+                  edit
                   ?
-                  <Pressable style={[styles.submitButton,styles.shadow,{backgroundColor: '#f5f4f4'}]}>
-                    <Text style={[styles.label,{textAlign: 'center',color: '#ddd',marginBottom: 0,fontFamily: 'OutfitMedium'}]}>Log</Text>
-                  </Pressable>
+                  (
+                    isUpdateAllowed
+                    ?
+                    <Pressable onPress={handleSubmit} style={[styles.submitButton,styles.shadow]}>
+                      <Text style={[styles.label,{textAlign: 'center',color: '#fff',marginBottom: 0,fontFamily: 'OutfitMedium'}]}>Update</Text>
+                    </Pressable>
+                    :
+                    <Pressable style={[styles.submitButton,styles.shadow,{backgroundColor: '#f5f4f4'}]}>
+                      <Text style={[styles.label,{textAlign: 'center',color: '#ddd',marginBottom: 0,fontFamily: 'OutfitMedium'}]}>Update</Text>
+                    </Pressable>
+                  )
                   :
-                  <Pressable onPress={handleSubmit} style={[styles.submitButton,styles.shadow]}>
-                    <Text style={[styles.label,{textAlign: 'center',color: '#fff',marginBottom: 0,fontFamily: 'OutfitMedium'}]}>{edit ? 'Update' : 'Log'}</Text>
-                  </Pressable>
+                  (
+                    btnDisabled
+                    ?
+                    <Pressable style={[styles.submitButton,styles.shadow,{backgroundColor: '#f5f4f4'}]}>
+                      <Text style={[styles.label,{textAlign: 'center',color: '#ddd',marginBottom: 0,fontFamily: 'OutfitMedium'}]}>Log</Text>
+                    </Pressable>
+                    :
+                    <Pressable onPress={handleSubmit} style={[styles.submitButton,styles.shadow]}>
+                      <Text style={[styles.label,{textAlign: 'center',color: '#fff',marginBottom: 0,fontFamily: 'OutfitMedium'}]}>Log</Text>
+                    </Pressable>
+                  )
                 }
               </Animated.View>
             </ScrollView>

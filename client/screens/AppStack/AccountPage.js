@@ -498,7 +498,7 @@ const AccountPage = () => {
               end={{ x: 1, y: 1 }}
             >
           <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',margin: 'auto',paddingTop: 10,padding: 20,paddingBottom: 0,width: '100%'}}>
-              <View style={{display: 'flex',flexDirection: 'row',justifyContent: 'space-between',width: '90%',paddingHorizontal: 5}}>
+              <View style={{display: 'flex',flexDirection: 'row',justifyContent: 'space-between',width: '90%',paddingHorizontal: 5,marginVertical: 10,marginBottom: 20}}>
                 <Pressable>
                   <Ionicons name="settings" size={25} color="black" />
                 </Pressable>
@@ -506,7 +506,7 @@ const AccountPage = () => {
                   <MaterialIcons name="logout" size={25} color="black" />
                 </Pressable>
               </View>
-              <View style={styles.header}>
+              {/* <View style={styles.header}>
                 <View style={{ 
                 flexDirection: 'row', 
                 alignItems: 'center', 
@@ -599,7 +599,7 @@ const AccountPage = () => {
                   </Pressable>
                 </View>
               </View>
-              </View>
+              </View> */}
               <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',margin: 'auto',backgroundColor: '#fff',padding: 15,borderRadius: 20}}>
                 <TouchableWithoutFeedback onPress={() => setOpen(false)}>
                   <DropDownPicker
