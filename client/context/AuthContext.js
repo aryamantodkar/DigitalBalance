@@ -5,7 +5,7 @@ import {jwtDecode} from 'jwt-decode'; // Fix import
 
 export const AuthContext = createContext();
 
-const BASE_URL = 'http://192.168.1.10:5000'; // Replace with your server IP
+const BASE_URL = 'http://192.168.1.12:5000'; // Replace with your server IP
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -154,6 +154,22 @@ export const AuthProvider = ({ children }) => {
     if (!user) throw new Error('User is not logged in');
     try {
       const response = await axios.post(
+        `${BASE_URL}/api/auth/screentime`,
+        { ...screentimeData, userID: user.id },
+        { headers: { Authorization: `Bearer ${user.token}` } }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error submitting screentime:', error.response?.data || error.message);
+      throw error;
+    }
+  };
+
+  // Submit Screentime
+  const updateScreentime = async (screentimeData) => {
+    if (!user) throw new Error('User is not logged in');
+    try {
+      const response = await axios.put(
         `${BASE_URL}/api/auth/screentime`,
         { ...screentimeData, userID: user.id },
         { headers: { Authorization: `Bearer ${user.token}` } }
@@ -380,7 +396,8 @@ export const AuthProvider = ({ children }) => {
         updateSelectedApps,
         isFirstLogin,
         loadingFirstLogin,
-        fetchUserDetails
+        fetchUserDetails,
+        updateScreentime
       }}
     >
       {children}

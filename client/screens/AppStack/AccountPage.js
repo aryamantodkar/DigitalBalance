@@ -280,7 +280,6 @@ const AccountPage = () => {
   
       if (!group) return acc; // Skip data that doesn't fit the selected grouping strategy
       
-      console.log("group",group)
       const { weekLabel, weekRange, weekStartDate } = group;
   
       const label = groupBy === 'week' ? weekLabel : groupBy === 'month' ? `${group[0]}-${group[1]}` : group;
@@ -302,12 +301,72 @@ const AccountPage = () => {
   
       return acc;
     }, {});
-  
+
+    const addMissingPeriods = () => {
+      if (groupBy === "week") {
+        const minDate = dayjs(Object.values(groupedData)
+          .map((item) => item.weekStartDate)
+          .reduce((earliest, date) => (earliest && earliest.isBefore(dayjs(date)) ? earliest : dayjs(date)), null) || currentDate.startOf("isoWeek"));
+    
+        const maxDate = currentDate.startOf("isoWeek");
+        let currentWeek = minDate;
+    
+        while (currentWeek.isBefore(maxDate) || currentWeek.isSame(maxDate)) {
+          const week = groupingStrategies.week(currentWeek);
+          if (!groupedData[week.weekLabel]) {
+            groupedData[week.weekLabel] = {
+              screentime: 0,
+              range: week.weekRange,
+              weekStartDate: week.weekStartDate,
+            };
+          }
+          currentWeek = currentWeek.add(1, "week");
+        }
+      } else if (groupBy === "month") {
+        const minDate = dayjs(Object.values(groupedData)
+          .map((item) => dayjs(`${item.range[0]}-${item.range[1]}-01`, "YYYY-MM-DD"))
+          .reduce((earliest, date) => (earliest && earliest.isBefore(date) ? earliest : date), null) || currentDate.startOf("month"));
+    
+        const maxDate = currentDate.startOf("month");
+        let currentMonth = minDate;
+    
+        while (currentMonth.isBefore(maxDate) || currentMonth.isSame(maxDate)) {
+          const currentMonthData = groupingStrategies.month(currentMonth);
+          const currentMonthLabel = `${currentMonthData[0]}-${currentMonthData[1]}`;
+          if (!groupedData[currentMonthLabel]) {
+            groupedData[currentMonthLabel] = {
+              screentime: 0,
+              range: currentMonthData, // [year, month]
+            };
+          }
+          currentMonth = currentMonth.add(1, "month");
+        }
+      } else if (groupBy === "year") {
+        const minYear = Math.min(
+          ...Object.values(groupedData).map((item) => item.range),
+          currentDate.year()
+        );
+        const maxYear = currentDate.year();
+    
+        for (let year = minYear; year <= maxYear; year++) {
+          if (!groupedData[year]) {
+            groupedData[year] = {
+              screentime: 0,
+              range: year,
+            };
+          }
+        }
+      }
+      return groupedData;
+    };
+    
+    const completeGroupedData = addMissingPeriods();
+    
     // Sort the data based on the start date for week or month groupings
-    const sortedGroupedData = Object.keys(groupedData)
+    const sortedGroupedData = Object.keys(completeGroupedData)
       .sort((a, b) => {
         let aDate, bDate;
-  
+        
         // Parse date for months and years
         if (groupBy === 'month') {
           const aMonth = groupedData[a].range[1]; // Month number (e.g., 12 for December)
@@ -489,7 +548,7 @@ const AccountPage = () => {
       return label; // Fallback, keep other labels unchanged
     }
   });  
-  console.log("insights",insights)
+
   return (
       <LinearGradient
               colors={['#E7F6F6', '#FBEFEF', '#F9FBFA']}
@@ -498,12 +557,13 @@ const AccountPage = () => {
               end={{ x: 1, y: 1 }}
             >
           <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',margin: 'auto',paddingTop: 10,padding: 20,paddingBottom: 0,width: '100%'}}>
-              <View style={{display: 'flex',flexDirection: 'row',justifyContent: 'space-between',width: '90%',paddingHorizontal: 5,marginVertical: 10,marginBottom: 20}}>
+              <View style={{display: 'flex',flexDirection: 'row',justifyContent: 'space-between',alignItems: 'center',width: '90%',paddingHorizontal: 5,marginVertical: 10,marginBottom: 30}}>
                 <Pressable>
-                  <Ionicons name="settings" size={25} color="black" />
+                  <Ionicons name="settings" size={30} color="black" />
                 </Pressable>
+                <Text style={[styles.message,{color: '#000',fontFamily: 'OutfitRegular',marginBottom: 0,fontSize: 22}]}>Account</Text>
                 <Pressable onPress={handleLogout}>
-                  <MaterialIcons name="logout" size={25} color="black" />
+                  <MaterialIcons name="logout" size={30} color="black" />
                 </Pressable>
               </View>
               {/* <View style={styles.header}>

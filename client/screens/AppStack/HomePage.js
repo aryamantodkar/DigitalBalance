@@ -439,7 +439,7 @@ const HomePage = () => {
                 );
               }}
               formatYLabel={formatYLabel}
-              segments={4}
+              segments={chartData.data.every(value => value === 0) ? 0 : 4}
               onDataPointClick={handleDataPointClick}
               style={styles.chart}
             />

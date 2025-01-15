@@ -37,7 +37,7 @@ const LogTime = ({ setIsNavbarVisible }) => {
   const { width } = Dimensions.get('window');
   const navigation = useNavigation(); 
 
-  const { fetchUserDetails, submitScreentime,fetchScreentime } = useAuth();
+  const { fetchUserDetails, submitScreentime,fetchScreentime, updateScreentime } = useAuth();
   const [date, setDate] = useState(null);
   const [displayDate, setDisplayDate] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -309,6 +309,30 @@ const LogTime = ({ setIsNavbarVisible }) => {
       }
   };
 
+  const handleUpdate = async () => {
+    let totalMinutes = Number(screentimeHours*60) + Number(screentimeMinutes);
+    const screentimeData = {
+        totalScreentime: totalMinutes, // Total screen time in minutes
+        date: date, // ISO format date
+        apps: inputValues
+    };
+    try {
+      const response = await updateScreentime(screentimeData);
+      setInputValues({});
+      setScreentimeHours(0);
+      setScreentimeMinutes(0);
+      setIsLoading(true);
+
+      setTimeout(() => {
+        navigation.navigate('Home'); // Navigate to the final destination
+      }, 2000);
+
+      console.log('Screentime updated successfully:', response);
+    } catch (error) {
+      console.error('Error updating screentime:', error.message);
+    }
+};
+
   useEffect(()=>{
     setInputValues({});
     setIsUpdateAllowed(false);
@@ -370,7 +394,7 @@ const LogTime = ({ setIsNavbarVisible }) => {
     else{
       setIsUpdateAllowed(false);
     }
-  },[inputValues])
+  },[inputValues,screentimeHours,screentimeMinutes])
 
   useEffect(()=>{
     Animated.timing(marginTop, {
@@ -738,7 +762,7 @@ const LogTime = ({ setIsNavbarVisible }) => {
                   (
                     isUpdateAllowed
                     ?
-                    <Pressable onPress={handleSubmit} style={[styles.submitButton,styles.shadow]}>
+                    <Pressable onPress={handleUpdate} style={[styles.submitButton,styles.shadow]}>
                       <Text style={[styles.label,{textAlign: 'center',color: '#fff',marginBottom: 0,fontFamily: 'OutfitMedium'}]}>Update</Text>
                     </Pressable>
                     :

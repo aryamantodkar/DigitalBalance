@@ -715,6 +715,37 @@ router.post('/screentime', async (req, res) => {
   }
 });
 
+// Update Screentime 
+router.put('/screentime', async (req, res) => {
+  const { userID, date, totalScreentime, apps } = req.body;
+
+  // Validate request
+  if (!userID || !totalScreentime || !apps || typeof apps !== 'object' || !date) {
+    return res.status(400).json({ message: 'Invalid input. All fields are required.' });
+  }
+
+  try {
+    // Find the record to update
+    const existingRecord = await Screentime.findOne({ userID, date });
+
+    if (!existingRecord) {
+      return res.status(404).json({ message: 'Screentime record not found for the specified user and date.' });
+    }
+
+    // Update the fields
+    existingRecord.totalScreentime = totalScreentime;
+    existingRecord.apps = apps;
+
+    await existingRecord.save();
+
+    return res.status(200).json({ message: 'Screentime record updated successfully', screentime: existingRecord });
+  } catch (err) {
+    console.error("Error updating screentime record:", err);
+    res.status(500).json({ message: 'Something went wrong. Please try again later.' });
+  }
+});
+
+
 router.get('/screentime/:userID', async (req, res) => {
   const { userID } = req.params;
   try {
