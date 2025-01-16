@@ -367,6 +367,7 @@ const AccountPage = () => {
       .sort((a, b) => {
         let aDate, bDate;
         
+        console.log("grouped",groupedData[a].range)
         // Parse date for months and years
         if (groupBy === 'month') {
           const aMonth = groupedData[a].range[1]; // Month number (e.g., 12 for December)
@@ -796,7 +797,7 @@ const AccountPage = () => {
                                 borderWidth: 1,
                                 justifyContent: 'center',
                                 backgroundColor: '#fff',
-                                borderRadius: 10,
+                                borderRadius: 20,
                                 borderWidth: 0,
                                 // iOS shadow
                                 shadowColor: '#000',
@@ -805,7 +806,7 @@ const AccountPage = () => {
                                 shadowRadius: 5,
                                 // Android shadow
                                 elevation: 5,
-                                margin: 10,
+                                margin: 5,
                                 borderRadius: 10,
                                 
                             }}
@@ -854,7 +855,7 @@ const AccountPage = () => {
                                             Your screen time this week was
                                           </Text>
                                           <Text style={[styles.stats,{color: '#15803D'}]}>
-                                            {insights?.[1]?.percentageChange}% LOWER
+                                            {Math.abs(Number(insights?.[1]?.percentageChange))}% LOWER
                                           </Text>
                                           <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
                                             than last week.
@@ -885,7 +886,7 @@ const AccountPage = () => {
                                               Your screen time this week was
                                             </Text>
                                             <Text style={[styles.stats,{color: 'red'}]}>
-                                              {insights?.[1]?.percentageChange}% HIGHER
+                                              {Math.abs(Number(insights?.[1]?.percentageChange))}% HIGHER
                                             </Text>
                                             <Text style={[styles.message,{color: '#404040',fontFamily: 'InterHeadinRegular'}]}>
                                               than last week.
@@ -1103,8 +1104,6 @@ const styles = StyleSheet.create({
   },
   chartContainer: {
     backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#f5f4f4',
     borderRadius: 20,
     paddingVertical: 15,
     marginTop: 20,

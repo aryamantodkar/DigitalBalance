@@ -22,6 +22,8 @@ const HomePage = () => {
   const [chartData, setChartData] = useState({ labels: [], data: [] });
   const [selectedPointIndex, setSelectedPointIndex] = useState(null);
   const [weeklyScreentime, setWeeklyScreentime] = useState(null);
+  const [overtheLimit,setOvertheLimit] = useState(0);
+  const [timeSpent,setTimeSpent] = useState(0);
 
   const animatedValue = useRef(new Animated.Value(8)).current; // Ref for dot size animation
   const animatedOpacity = useRef(new Animated.Value(1)).current;
@@ -74,6 +76,18 @@ const HomePage = () => {
       const transformedData = records.map(transformScreentimeData);
       const todaysData = getTodaysData(transformedData);
 
+      let limit = userDetails.data.screentimeLimit*60;
+      let overTheLimit = 0;
+      let totalTime = 0;
+
+      transformedData.map(data => {
+        overTheLimit += (data.totalScreentime-limit);
+        totalTime += data.totalScreentime;
+      })
+
+      setTimeSpent(totalTime);
+      setOvertheLimit(overTheLimit);
+      
       setTodaysData(todaysData);
       setUserData(userDetails.data);
       updateChartDataForWeek(transformedData);
@@ -246,7 +260,7 @@ const HomePage = () => {
               end={{ x: 1, y: 1 }}
             >
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          <View style={{marginBottom: 10,display: 'flex',flexDirection: 'row',justifyContent: 'space-between',alignItems: 'center',width: '100%'}}>
+          <View style={{marginBottom: 10,display: 'flex',flexDirection: 'row',justifyContent: 'space-between',alignItems: 'center',width: '100%',paddingHorizontal: 10}}>
             <View>
               <Text style={styles.headerText}>Hello,</Text>
               <Text style={styles.headerUserName}>Aryaman.</Text>
@@ -256,7 +270,7 @@ const HomePage = () => {
           {
             todaysData ? (
               <View style={styles.topApps}>
-                <View style={{ display: 'flex', flexDirection: 'row',justifyContent: 'space-between', marginVertical: 20,paddingHorizontal: 10 }}>
+                <View style={{ display: 'flex', flexDirection: 'row',justifyContent: 'space-between', marginVertical: 20,paddingHorizontal: 10,width: '100%' }}>
                   <View>
                     <View style={{ marginBottom: 10 }}>
                       <Text style={{ fontFamily: 'OutfitRegular', fontSize: 14, color: '#404040' }}>Screen Time</Text>
@@ -312,7 +326,7 @@ const HomePage = () => {
               </View>
             ) : (
               <View style={styles.topApps}>
-                <View style={{ display: 'flex', flexDirection: 'row',justifyContent: 'space-between',paddingHorizontal: 10, marginVertical: 20 }}>
+                <View style={{ display: 'flex', flexDirection: 'row',justifyContent: 'space-between',paddingHorizontal: 10, marginVertical: 20,width: '100%' }}>
                   <View>
                     <View style={{ marginBottom: 10 }}>
                       <Text style={{ fontFamily: 'OutfitRegular', fontSize: 14, color: '#404040' }}>Screen Time</Text>
@@ -445,6 +459,51 @@ const HomePage = () => {
             />
           </Animated.View>
         </View>
+        <View style={styles.realityStats}>
+          <View style={styles.interestsContainer}>
+            {/* <View style={{marginBottom: 20}}>
+              <Text style={[styles.timeText,{color: '#404040',fontFamily: 'OutfitMedium'}]}>Make It Count.</Text>
+            </View> */}
+            {overtheLimit > 0 ? (
+              <View style={styles.messageContainer}>
+                <Text style={styles.mainText}>
+                  You've <Text style={styles.wastedText}>Wasted</Text> a total of{' '}
+                  <Text style={[styles.timeText,{color: '#E70000'}]}>{Math.abs(overtheLimit)}</Text> minutes on screen time.
+                </Text>
+                <Text style={styles.detailsText}>
+                  That's <Text style={[styles.timeText,{color: '#E70000'}]}>{convertTime(Math.abs(overtheLimit))}</Text> spent more than you intended.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.messageContainer}>
+                <Text style={styles.mainText}>
+                  You've <Text style={styles.savedText}>Saved</Text> a total of{' '}
+                  <Text style={styles.timeText}>{Math.abs(overtheLimit)}</Text> minutes on screen time.
+                </Text>
+                <Text style={styles.detailsText}>
+                  That's <Text style={styles.timeText}>{convertTime(Math.abs(overtheLimit))}</Text> spent less than you intended.
+                </Text>
+              </View>
+            )}
+            {/* <Text style={styles.interestsTitle}>You could've used this time for:</Text>
+            <View style={styles.interestsGrid}>
+              {[
+                { text: '💪  Working out', icon: 'fitness' },
+                { text: '🧘‍♀️  Meditating', icon: 'meditation' },
+                { text: '🍎  Making healthy meals', icon: 'fast-food' },
+                { text: '👨‍👩‍👧‍👦  Spending time with loved ones', icon: 'people' },
+                { text: '📖  Reading books', icon: 'book' },
+                { text: '✍️   Journaling', icon: 'create' },
+                { text: '🧠  Learning a new skill', icon: 'school' },
+                { text: '⚽  Playing a sport', icon: 'sports' },
+              ].map((interest, index) => (
+                <View style={styles.interestCard} key={index}>
+                  <Text style={styles.interestText}>{interest.text}</Text>
+                </View>
+              ))}
+            </View> */}
+          </View>
+        </View>
 
         </ScrollView>
       </LinearGradient>
@@ -535,7 +594,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
     padding: 15,
-    borderRadius: 15,
     backgroundColor: '#FFFFFF88',
     borderRadius: 12,
     shadowColor: '#000',
@@ -630,4 +688,88 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 5,
   },
+  realityStats: {
+    flex: 1,
+    marginTop: 10,
+    width: '100%'
+  },
+  messageContainer: {
+    // marginBottom: 20,
+    paddingVertical: 10,
+  },
+  mainText: {
+    fontFamily: 'OutfitRegular',
+    fontSize: 18,
+    color: '#404040',
+    lineHeight: 25,
+    marginBottom: 10,
+  },
+  wastedText: {
+    fontFamily: 'OutfitSemiBold',
+    fontSize: 25,
+    color: '#E70000', // Wasted time in red
+  },
+  savedText: {
+    fontFamily: 'OutfitSemiBold',
+    fontSize: 25,
+    color: '#4A7676', // Saved time in green
+  },
+  timeText: {
+    fontFamily: 'OutfitSemiBold',
+    fontSize: 25,
+    color: '#4A7676',
+  },
+  detailsText: {
+    fontFamily: 'OutfitRegular',
+    fontSize: 16,
+    color: '#404040',
+    marginTop: 5,
+  },
+  interestsContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 20,
+    marginTop: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 5,
+    elevation: 5,
+    minWidth: '100%'
+  },
+  // interestsTitle: {
+  //   fontFamily: 'OutfitSemiBold',
+  //   fontSize: 18,
+  //   color: '#4A7676',
+  //   marginBottom: 15,
+  // },
+  // interestsGrid: {
+  //   flexDirection: 'row',
+  //   flexWrap: 'wrap',
+  //   justifyContent: 'flex-start',
+  //   marginTop: 10,
+  // },
+  // interestCard: {
+  //   // width: '45%', // Two items per row
+  //   marginBottom: 15,
+  //   marginHorizontal: 5,
+  //   padding: 10,
+  //   backgroundColor: '#F9FBFA',
+  //   borderRadius: 12,
+  //   shadowColor: '#000',
+  //   shadowOffset: { width: 0, height: 2 },
+  //   shadowOpacity: 0.1,
+  //   shadowRadius: 5,
+  //   elevation: 5,
+
+  //   display: 'flex',
+  //   justifyContent: 'center',
+  //   alignItems: 'center'
+  // },
+  // interestText: {
+  //   fontFamily: 'OutfitRegular',
+  //   fontSize: 16,
+  //   color: '#404040',
+  //   textAlign: 'center',
+  // },
 });

@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontFamily: 'InterHeadingBold',
+    fontFamily: 'OutfitSemiBold',
     fontSize: 28,
     fontWeight: '800',
     color: '#295454',
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   limitText: {
-    fontFamily: 'InterHeadingBold',
+    fontFamily: 'OutifitBold',
     fontSize: 54,
     fontWeight: '900',
     color: '#fff',
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     borderRadius: 30,
   },
   nextButtonText: {
-    fontFamily: 'InterHeadingBold',
+    fontFamily: 'OutfitBold',
     fontSize: 18,
     fontWeight: '700',
     color: '#fff',

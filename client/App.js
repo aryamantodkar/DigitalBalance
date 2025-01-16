@@ -4,7 +4,6 @@ import { createStackNavigator } from '@react-navigation/stack';
 import Navbar from './components/Navbar';
 import Login from './screens/AuthStack/Login';
 import Register from './screens/AuthStack/Register';
-import ProfileSetup from './screens/FirstLoginStack/ProfileSetup';
 import TopAppsSetup from './screens/FirstLoginStack/TopAppsSetup';
 import { useFonts } from 'expo-font';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -41,7 +40,6 @@ const AppStack = () => (
 
 const FirstLoginStack = () => (
   <Stack.Navigator>
-    <Stack.Screen name="ProfileSetup" component={ProfileSetup} options={{ headerShown: false }} />
     <Stack.Screen name="ScreenLimitSetup" component={ScreenLimitSetup} options={{ headerShown: false }} />
     <Stack.Screen name="TopAppsSetup" component={TopAppsSetup} options={{ headerShown: false }} />
   </Stack.Navigator>
