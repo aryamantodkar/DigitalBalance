@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, ActivityIndicator, SafeAreaView } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
-import Navbar from './components/Navbar';
 import Login from './screens/AuthStack/Login';
 import Register from './screens/AuthStack/Register';
 import TopAppsSetup from './screens/FirstLoginStack/TopAppsSetup';
@@ -15,6 +14,8 @@ import {
   ReanimatedLogLevel,
 } from 'react-native-reanimated';
 import ScreenLimitSetup from './screens/FirstLoginStack/ScreenLimitSetup';
+import HomePage from './screens/AppStack/HomePage';
+import LogTime from './screens/AppStack/LogTime';
 
 // This is the default configuration
 configureReanimatedLogger({
@@ -34,7 +35,8 @@ const AuthStack = () => (
 
 const AppStack = () => (
   <Stack.Navigator>
-    <Stack.Screen name="Navbar" component={Navbar} options={{ headerShown: false }} />
+    <Stack.Screen name="Home" component={HomePage} options={{ headerShown: false }} />
+    <Stack.Screen name="Track" component={LogTime} options={{ headerShown: false }} />
   </Stack.Navigator>
 );
 

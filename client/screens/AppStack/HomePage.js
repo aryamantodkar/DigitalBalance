@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { StyleSheet, Text, View, Dimensions, Pressable,Image, Animated, ScrollView,ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, Dimensions, Pressable,Image, Animated, ScrollView,ActivityIndicator, TouchableWithoutFeedback } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import AppList from '../../AppList.json';
 import dayjs from 'dayjs';
@@ -7,27 +7,41 @@ import advancedFormat from 'dayjs/plugin/advancedFormat';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import utc from 'dayjs/plugin/utc';
 import isBetween from 'dayjs/plugin/isBetween';
 import { LineChart } from 'react-native-chart-kit';
 import DropDownPicker from 'react-native-dropdown-picker';
 import AntDesign from '@expo/vector-icons/AntDesign';
+import Entypo from '@expo/vector-icons/Entypo';
+import { useNavigation } from '@react-navigation/native'; 
 
 const HomePage = () => {
   const { fetchScreentime, fetchUserDetails } = useAuth();
-  const [todaysData,setTodaysData] = useState(null);
+  const navigation = useNavigation(); 
+
   const [userData,setUserData] = useState(null);
-  const [chartData, setChartData] = useState({ labels: [], data: [] });
-  const [selectedPointIndex, setSelectedPointIndex] = useState(null);
-  const [weeklyScreentime, setWeeklyScreentime] = useState(null);
   const [overtheLimit,setOvertheLimit] = useState(0);
   const [timeSpent,setTimeSpent] = useState(0);
+  const [insights,setInsights] = useState([]);
 
+  const [chartData, setChartData] = useState({ labels: [], data: [] });
+  const [selectedPointIndex, setSelectedPointIndex] = useState(null);
+  const [groupBy, setGroupBy] = useState('week');
+  const [open, setOpen] = useState(false); // Controls dropdown visibility
+  const [selectedApp, setSelectedApp] = useState('All Apps'); // Selected app
+  const [availableApps, setAvailableApps] = useState([
+    { label: 'All Apps', value: 'All Apps', icon: () => (<AntDesign style={styles.icon} name="appstore-o" size={26} color="#ddd" />) },
+  ]);
   const animatedValue = useRef(new Animated.Value(8)).current; // Ref for dot size animation
   const animatedOpacity = useRef(new Animated.Value(1)).current;
-  const textOpacity = useRef(new Animated.Value(1)).current;
+
+  const animatedValues = {
+    year: new Animated.Value(groupBy === 'year' ? 1 : 0),
+    month: new Animated.Value(groupBy === 'month' ? 1 : 0),
+    week: new Animated.Value(groupBy === 'week' ? 1 : 0),
+  };
+
 
   dayjs.extend(isBetween);
   dayjs.extend(advancedFormat);
@@ -60,21 +74,15 @@ const HomePage = () => {
     };
   };
 
-  const getTodaysData = (transformedData) => {
-    const today = dayjs().format('YYYY-MM-DD');
-  
-    const todaysData = transformedData.find((record) => record.date === today);
-  
-    return todaysData || null; 
-  };
-
   const fetchData = async () => {
     try {
       const records = await fetchScreentime();
       const userDetails = await fetchUserDetails();
 
       const transformedData = records.map(transformScreentimeData);
-      const todaysData = getTodaysData(transformedData);
+
+      const appsMap = new Map();
+      appsMap.set('All Apps', { label: 'All Apps', value: 'All Apps', appIconUrl: 'appstore-o' });
 
       let limit = userDetails.data.screentimeLimit*60;
       let overTheLimit = 0;
@@ -85,15 +93,113 @@ const HomePage = () => {
         totalTime += data.totalScreentime;
       })
 
+      transformedData.forEach((record) => {
+        record.apps.forEach((app) => {
+          if (!appsMap.has(app.name)) {
+            appsMap.set(app.name, {
+              label: app.name,
+              value: app.name,
+              appIconUrl: app.appIconUrl,
+            });
+          }
+        });
+      });
+
+      const formattedApps = Array.from(appsMap.values()).map((app) => {
+        return {
+          label: app.label,
+          value: app.value,
+          icon: () =>
+            app.appIconUrl ? (
+              app.label === 'All Apps'
+              ?
+              <AntDesign style={styles.icon} name="appstore-o" size={26} color="#ddd" />
+              :
+              <Image source={{ uri: app.appIconUrl }} style={styles.icon} />
+            ) : null,
+        }
+      });
+      const insights = generateInsights(transformedData);
+
+      setAvailableApps(formattedApps);
+      updateChartData(transformedData, groupBy, selectedApp);
+      setInsights(insights);
       setTimeSpent(totalTime);
       setOvertheLimit(overTheLimit);
-      
-      setTodaysData(todaysData);
       setUserData(userDetails.data);
-      updateChartDataForWeek(transformedData);
     } catch (error) {
       console.error('Error fetching screentime:', error.message);
     }
+  };
+
+  const calculatePercentageChange = (currentPeriod, previousPeriod) => {
+    
+    const currentTotal = currentPeriod.reduce((total, day) => total + day.totalScreentime, 0);
+    const previousTotal = previousPeriod.reduce((total, day) => total + day.totalScreentime, 0);
+  
+    if (previousTotal === 0) return null; // Avoid division by zero
+  
+    return parseInt(((currentTotal - previousTotal) / previousTotal) * 100);
+  };
+
+  const findBestAndWorstDays = (data) => {
+    if (!data || data.length === 0) return { bestDay: null, worstDay: null };
+  
+    const bestDay = data.reduce((min, day) => (day.totalScreentime < min.totalScreentime ? day : min), data[0]);
+    const worstDay = data.reduce((max, day) => (day.totalScreentime > max.totalScreentime ? day : max), data[0]);
+  
+    const bestDayFormatted = dayjs(bestDay.date).format('Do MMM YYYY');
+    const worstDayFormatted = dayjs(worstDay.date).format('Do MMM YYYY');
+
+    return {
+      bestDay: { ...bestDay, formattedDate: bestDayFormatted },
+      worstDay: { ...worstDay, formattedDate: worstDayFormatted },
+    };
+  };
+
+  const getWeekData = (data) => {
+    const today = dayjs();
+  
+    // Define the start and end of the current week
+    const currentWeekStart = today.startOf('isoweek');
+    const currentWeekEnd = today.endOf('isoweek');
+  
+    // Define the start and end of the last week
+    const lastWeekStart = currentWeekStart.subtract(1, 'week');
+    const lastWeekEnd = currentWeekStart.subtract(1, 'day'); // Day before current week's start
+  
+    // Filter data for the current week
+    const currentWeekData = data.filter((entry) => {
+      const entryDate = dayjs(entry.date, 'DD-MM-YY'); // Parse custom date format
+      return entryDate.isBetween(currentWeekStart, currentWeekEnd, 'day', '[]');
+    });
+  
+    // Filter data for the last week
+    const lastWeekData = data.filter((entry) => {
+      const entryDate = dayjs(entry.date, 'DD-MM-YY'); // Parse custom date format
+      return entryDate.isBetween(lastWeekStart, lastWeekEnd, 'day', '[]');
+    });
+  
+    return { currentWeekData, lastWeekData };
+  };
+
+  const calculateAverageScreentime = (data) => {
+    if (!data || data.length === 0) return 0;
+  
+    const totalScreentime = data.reduce((total, day) => total + day.totalScreentime, 0);
+    const daysLogged = data.length;
+  
+    return Math.round(totalScreentime / daysLogged);
+  };
+
+  const calculateProjectedScreentime = (dailyAverageMinutes, projectionYears) => {
+    const yearlyMinutes = dailyAverageMinutes * 365;
+    const totalMinutes = yearlyMinutes * projectionYears;
+  
+    const totalHours = Math.floor(totalMinutes / 60);
+    const totalDays = Math.floor(totalHours / 24);
+  
+    return { totalMinutes, totalHours, totalDays };
   };
 
   const convertTime = (time) => {
@@ -114,37 +220,258 @@ const HomePage = () => {
     }
   }
 
-  const updateChartDataForWeek = (data) => {
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [])
+  );
+
+  useEffect(() => {
+    fetchData();
+  }, [groupBy, selectedApp]);
+
+  const generateInsights = (data) => {
+    const avgDaily = calculateAverageScreentime(data);
+    const { bestDay, worstDay } = findBestAndWorstDays(data);
+    const { currentWeekData, lastWeekData } = getWeekData(data);
+    const percentageChange = (calculatePercentageChange(currentWeekData, lastWeekData));
+    const { totalDays: fiveYearDays } = calculateProjectedScreentime(avgDaily, 5);
+    const { totalDays: fiftyYearDays } = calculateProjectedScreentime(avgDaily, 50);
+
+    const insights = [
+      {
+        fiveYearDays,
+        fiftyYearDays,
+        avgDaily, 
+      },
+      {
+        percentageChange,
+        avgDaily,
+      },
+      {
+        bestDay,
+        worstDay,
+      }
+    ];
+
+    return insights;
+  };
+
+  const convertToYear = (days) => {
+    if(days<365) return days;
+    else{
+      let year = Math.floor(days/365);
+      let remDays = (days%365);
+
+      if(remDays>0){
+        let months = Math.floor(remDays/12);
+        return `${year} Years ${months} Months`;
+      }
+      return `${year} Years`;
+    }
+  }
+
+  //chart functions
+
+  const groupData = (data, groupBy) => {
+    const currentDate = dayjs(); // Get today's date
+  
+    const groupingStrategies = {
+      week: (date) => {
+        const weekStart = dayjs(date).startOf('isoWeek'); // Use isoWeek to start the week on Monday
+        const weekEnd = weekStart.endOf('isoWeek');
+  
+        // Check if the week belongs to the current month
+        const isCurrentMonth = weekStart.month() === currentDate.month() || weekEnd.month() === currentDate.month(); // Include weeks that overlap months
+        if (!isCurrentMonth) return null; // Skip weeks that aren't in the current month
+  
+        // If the start and end month are different, display both months with full names
+        const weekStartMonth = weekStart.format('MMMM');
+        const weekEndMonth = weekEnd.format('MMMM');
+  
+        let weekRange = `${weekStart.format('MMMM D')} - ${weekEnd.format('D')}`;
+        if (weekStartMonth !== weekEndMonth) {
+          weekRange = `${weekStart.format('MMMM D')} - ${weekEnd.format('MMMM D')}`;
+        }
+  
+        // Use ISO week for consistent week labels
+        return {
+          weekLabel: `Week ${weekStart.isoWeek()}`, // Use isoWeek for accurate week numbering
+          weekStart: weekStart.format('MMMM D'),
+          weekEnd: weekEnd.format('D'),
+          weekRange,
+          weekStartDate: weekStart, // Add start date for sorting
+        };
+      },
+      month: (date) => {
+        // Return month as a number (0-11) and year for sorting, adjust to 1-indexed month
+        return [dayjs(date).year(), dayjs(date).month() + 1]; // Adjust month by adding 1
+      },
+      year: (date) => {
+        return dayjs(date).year(); // Group by year for all available years in the data
+      },
+    };
+  
+    // Group the data based on the selected grouping strategy (week, month, year)
+    const groupedData = data.reduce((acc, item) => {
+      const group = groupingStrategies[groupBy](item.date);
+  
+      if (!group) return acc; // Skip data that doesn't fit the selected grouping strategy
+      
+      const { weekLabel, weekRange, weekStartDate } = group;
+  
+      const label = groupBy === 'week' ? weekLabel : groupBy === 'month' ? `${group[0]}-${group[1]}` : group;
+  
+      if (!acc[label]) acc[label] = { screentime: 0, range: weekRange || group };
+  
+      if (selectedApp === 'All Apps') {
+        acc[label].screentime += item.totalScreentime;
+        acc[label].range = weekRange || group;
+      } else {
+        const appScreentime = item.apps.find((app) => app.name === selectedApp);
+        if (appScreentime){
+          acc[label].screentime += appScreentime.totalMinutes;
+          acc[label].range = weekRange || group;
+        }
+      }
+  
+      if (weekStartDate) acc[label].weekStartDate = weekStartDate;
+  
+      return acc;
+    }, {});
+
+    const addMissingPeriods = () => {
+      if (groupBy === "week") {
+        const minDate = dayjs(Object.values(groupedData)
+          .map((item) => item.weekStartDate)
+          .reduce((earliest, date) => (earliest && earliest.isBefore(dayjs(date)) ? earliest : dayjs(date)), null) || currentDate.startOf("isoWeek"));
+    
+        const maxDate = currentDate.startOf("isoWeek");
+        let currentWeek = minDate;
+    
+        while (currentWeek.isBefore(maxDate) || currentWeek.isSame(maxDate)) {
+          const week = groupingStrategies.week(currentWeek);
+          if (!groupedData[week.weekLabel]) {
+            groupedData[week.weekLabel] = {
+              screentime: 0,
+              range: week.weekRange,
+              weekStartDate: week.weekStartDate,
+            };
+          }
+          currentWeek = currentWeek.add(1, "week");
+        }
+      } else if (groupBy === "month") {
+        const minDate = dayjs(Object.values(groupedData)
+          .map((item) => dayjs(`${item.range[0]}-${item.range[1]}-01`, "YYYY-MM-DD"))
+          .reduce((earliest, date) => (earliest && earliest.isBefore(date) ? earliest : date), null) || currentDate.startOf("month"));
+    
+        const maxDate = currentDate.startOf("month");
+        let currentMonth = minDate;
+    
+        while (currentMonth.isBefore(maxDate) || currentMonth.isSame(maxDate)) {
+          const currentMonthData = groupingStrategies.month(currentMonth);
+          const currentMonthLabel = `${currentMonthData[0]}-${currentMonthData[1]}`;
+          if (!groupedData[currentMonthLabel]) {
+            groupedData[currentMonthLabel] = {
+              screentime: 0,
+              range: currentMonthData, // [year, month]
+            };
+          }
+          currentMonth = currentMonth.add(1, "month");
+        }
+      } else if (groupBy === "year") {
+        const minYear = Math.min(
+          ...Object.values(groupedData).map((item) => item.range),
+          currentDate.year()
+        );
+        const maxYear = currentDate.year();
+    
+        for (let year = minYear; year <= maxYear; year++) {
+          if (!groupedData[year]) {
+            groupedData[year] = {
+              screentime: 0,
+              range: year,
+            };
+          }
+        }
+      }
+      return groupedData;
+    };
+    
+    const completeGroupedData = addMissingPeriods();
+    
+    // Sort the data based on the start date for week or month groupings
+    const sortedGroupedData = Object.keys(completeGroupedData)
+      .sort((a, b) => {
+        let aDate, bDate;
+        
+        // Parse date for months and years
+        if (groupBy === 'month') {
+          const aMonth = groupedData[a].range[1]; // Month number (e.g., 12 for December)
+          const bMonth = groupedData[b].range[1]; // Month number (e.g., 11 for November)
+          const aYear = groupedData[a].range[0]; // Year (e.g., 2024)
+          const bYear = groupedData[b].range[0]; // Year (e.g., 2024)
+  
+          // Create date objects properly with the correct month and year
+          aDate = dayjs(`${aYear}-${aMonth}-01`, 'YYYY-MM-DD').month(aMonth); // Adjust for 0-indexed months
+          bDate = dayjs(`${bYear}-${bMonth}-01`, 'YYYY-MM-DD').month(bMonth);
+        } else {
+          // Sort weeks and years normally (if needed)
+          aDate = groupedData[a].weekStartDate || dayjs(a, 'MMMM');
+          bDate = groupedData[b].weekStartDate || dayjs(b, 'MMMM');
+        }
+  
+        // Sort by ascending order to show the latest month/week on the right
+        return aDate.isBefore(bDate) ? -1 : 1;
+      })
+      .reduce((acc, label) => {
+        // After sorting, convert month numbers to month names
+        if (groupBy === 'month') {
+          const monthIndex = groupedData[label].range[1]; // Convert to 0-based index
+          const monthName = dayjs().month(monthIndex - 1).format('MMMM'); // Get the full month name
+          groupedData[label].range = monthName + ' ' + groupedData[label].range[0]; // e.g., "December 2024"
+        }
+  
+        acc[label] = groupedData[label];
+        return acc;
+      }, {});
+  
+    return sortedGroupedData;
+  };
+   
+  const updateChartData = (data, groupBy, selectedApp) => {
     Animated.timing(animatedOpacity, {
       toValue: 0,
       duration: 200,
       useNativeDriver: true,
     }).start(() => {
-      const groupedWeekData = groupByWeek(data);
+      // Group data based on the selected strategy (week, month, etc.)
+      const groupedData = groupData(data, groupBy);
+      const labels = Object.keys(groupedData).sort();
+      const dataset = labels.map((label) => groupedData[label].screentime);
+      const ranges = labels.map((label) => groupedData[label].range);
 
-      let weekData = 0;
+      if(groupBy=='month'){
+        const monthLabels = labels.map((label) => {
+          const [year, monthIndex] = label.split('-'); // Split the year and month
+          return dayjs.utc(`${year}-${monthIndex.padStart(2, '0')}`).format('MMM YY'); // Format as "Nov 2024"
+        });
 
-      groupedWeekData.map(day => {
-        weekData += Number(day.totalScreentime);
-      });
-      setWeeklyScreentime(weekData);
+        const monthRanges = labels.map((label) => {
+          const [year, monthIndex] = label.split('-'); // Split the year and month
+          return dayjs.utc(`${year}-${monthIndex.padStart(2, '0')}`).format('MMMM YYYY'); // Format as "Nov 2024"
+        });
 
-      const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      const dataset = Array(7).fill(0); 
+        setChartData({ labels: monthLabels, data: dataset, ranges: monthRanges });
+      }
+      else{
+        setChartData({ labels, data: dataset, ranges });
+      }
   
-      labels.forEach((dayLabel, index) => {
-        const dayData = groupedWeekData.find((day) => day.day === dayLabel);
-  
-        if (dayData) {
-          dataset[index] = dayData.totalScreentime || 0; 
-        }
-      });
-  
-      setChartData({ labels, data: dataset });
+      // Set the selected point index to the last data point by default
+      setSelectedPointIndex(dataset.length - 1);
 
-      const lastNonZeroIndex = dataset.map((value, index) => (value > 0 ? index : null)).filter((v) => v !== null).pop();
-      setSelectedPointIndex(lastNonZeroIndex ?? 0);
-
+      // Animate the chart data opacity back to full visibility
       Animated.timing(animatedOpacity, {
         toValue: 1,
         duration: 200,
@@ -153,37 +480,23 @@ const HomePage = () => {
     });
   };  
 
-  const groupByWeek = (data) => {
-    const currentWeekStart = dayjs().startOf('isoWeek');
-    const currentWeekEnd = dayjs().endOf('isoWeek'); 
-  
-    // Filter data to include only entries within the current week
-    const currentWeekData = data.filter((entry) => {
-      const entryDate = dayjs(entry.date); // Ensure entry.date is in a compatible format
-      return entryDate.isBetween(currentWeekStart, currentWeekEnd, null, '[]'); // Include start and end dates
-    });
-  
-    // Initialize an object to group data by day of the week
-    const groupedData = {};
-  
-    // Populate groupedData
-    currentWeekData.forEach((entry) => {
-      const dayOfWeek = dayjs(entry.date).format('ddd'); // "Mon", "Tue", etc.
-      if (!groupedData[dayOfWeek]) {
-        groupedData[dayOfWeek] = {
-          totalScreentime: 0,
-        };
+  const formatTime = (time) => {
+    const hours = Math.floor(time / 60);
+    const minutes = Math.floor(time % 60);
+
+    const days = Math.floor(hours / 24);
+    const remHours = Math.floor(hours % 24);
+
+    if(hours>0){
+      if(hours>=24){
+        return `${days}d ${remHours}h`;
       }
-  
-      groupedData[dayOfWeek].totalScreentime += entry.totalScreentime;
-    });
-  
-    // Convert to an array of objects for easier iteration
-    return Object.entries(groupedData).map(([day, value]) => ({
-      day,
-      ...value,
-    }));
-  };  
+      return `${hours}h ${minutes}m`;
+    }
+    else{
+      return `${minutes}m`;
+    }
+  }
 
   const handleDataPointClick = (data) => {
     setSelectedPointIndex(data.index);
@@ -201,312 +514,282 @@ const HomePage = () => {
       }),
     ]).start();
   };
-  
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-    }, [])
-  );
 
-  const animateText = () => {
-    // Fade out animation
-    Animated.sequence([
-      Animated.timing(textOpacity, {
-        toValue: 0,
+  const handlePress = (newGroupBy) => {
+    Object.keys(animatedValues).forEach((key) => {
+      Animated.timing(animatedValues[key], {
+        toValue: key === newGroupBy ? 1 : 0,
         duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(textOpacity, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start();
+        useNativeDriver: false, // Scale and opacity don't support native driver
+      }).start();
+    });
+    setGroupBy(newGroupBy);
   };
 
-  useEffect(() => {
-    animateText(); // Trigger animation whenever selectedPointIndex changes
-  }, [selectedPointIndex, weeklyScreentime]);
-
-  const formatYLabel = (value) => {
-    const hours = Math.floor(value / 60); // Get the whole number of hours
-    const minutes = value % 60; // Get the remaining minutes
+  const getStyleForGroup = (key) => {
+    const backgroundColor = animatedValues[key].interpolate({
+      inputRange: [0, 1],
+      outputRange: ['#212121', '#323232'],
+    });
   
-    if (hours >= 1) {
-      return `${hours}h`; // Display hours only if hours >= 1
-    } else if (minutes > 0) {
-      return `${minutes}m`; // Display minutes if less than an hour
+    const scale = animatedValues[key].interpolate({
+      inputRange: [0, 1],
+      outputRange: [1, 1.1],
+    });
+  
+    const opacity = animatedValues[key].interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.8, 1],
+    });
+  
+    // Return style object without directly reading in render
+    return {
+      backgroundColor,
+      transform: [{ scale }],
+      opacity,
+    };
+  };
+
+  const handleLogout = () => {
+    logout(navigation); // Call the logout function and pass the navigation prop to navigate after logout
+  };
+
+  const getMonthName = (month) => {
+    const monthNames = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return monthNames[month - 1] || ''; // Convert 1-indexed month to 0-indexed
+  };
+
+  const updatedLabels = chartData.labels.map((label) => {
+    if (label.startsWith("Week")) {
+      return label; // Keep the week label as is
+    } else if (label.match(/^\d{4}-\d{2}$/)) {
+      const [year, month] = label.split('-'); // Split 'YYYY-MM' into year and month
+      return `${getMonthName(parseInt(month, 10))}`; // Format as 'MonthName'
+    } else if (label.match(/^\d{4}$/)) {
+      return label; // Return the 4-digit year as is
     } else {
-      return '0m'; // Return '0m' for zero screentime
+      return label; // Fallback, keep other labels unchanged
     }
-  };
-  
-  const dayAbbreviations = {
-    Mon: 'Monday',
-    Tue: 'Tuesday',
-    Wed: 'Wednesday',
-    Thu: 'Thursday',
-    Fri: 'Friday',
-    Sat: 'Saturday',
-    Sun: 'Sunday',
-  };
+  }); 
 
   if(userData){
     return (
-      <LinearGradient
-              colors={['#E7F6F6', '#FBEFEF', '#F9FBFA']}
-              style={[styles.container, { }]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
+      <View style={styles.container}>
+        <Pressable onPress={() => {
+          navigation.navigate('Track')
+        }} style={styles.logBtn}>
+          <Entypo name="plus" size={40} color="#171717" />
+        </Pressable>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <View style={{marginBottom: 10,display: 'flex',flexDirection: 'row',justifyContent: 'space-between',alignItems: 'center',width: '100%',paddingHorizontal: 10}}>
             <View>
               <Text style={styles.headerText}>Hello,</Text>
               <Text style={styles.headerUserName}>Aryaman.</Text>
             </View>
-            <Ionicons name="notifications" size={30} color="black" />
+            <Pressable>
+              <Ionicons name="settings" size={30} color="#ddd" />
+            </Pressable>
           </View>
-          {
-            todaysData ? (
-              <View style={styles.topApps}>
-                <View style={{ display: 'flex', flexDirection: 'row',justifyContent: 'space-between', marginVertical: 20,paddingHorizontal: 10,width: '100%' }}>
-                  <View>
-                    <View style={{ marginBottom: 10 }}>
-                      <Text style={{ fontFamily: 'OutfitRegular', fontSize: 14, color: '#404040' }}>Screen Time</Text>
-                    </View>
-                    <Text style={{ fontFamily: 'OutfitSemiBold', fontSize: 25, color: '#4A7676' }}>{convertTime(todaysData.totalScreentime)}</Text>
-                  </View>
-                  <View>
-                    <View style={{ marginBottom: 10 }}>
-                      <Text style={{ fontFamily: 'OutfitRegular', fontSize: 14, color: '#404040' }}>Time Remaining</Text>
-                    </View>
-                    <Text style={{ fontFamily: 'OutfitSemiBold', fontSize: 25, color: 'red' }}>{(userData?.screentimeLimit*60-todaysData.totalScreentime) > 0 ? convertTime((userData?.screentimeLimit*60)-todaysData.totalScreentime) : 0}</Text>
-                  </View>
-                </View>
-                {
-                  todaysData.apps.map((app) => {
-                    const percentage = Math.min((app.totalMinutes / (userData?.screentimeLimit*60)) * 100, 100); // Assuming 180 is the limit
-                    // Define the dynamic color based on percentage
-                    const getColor = (percent) => {
-                      if (percent < 25) return '#52C5FF'; 
-                      if (percent < 50) return '#A8D5BA'; 
-                      if (percent < 75) return '#FFB84D'; 
-                      return '#FF5E4F'; 
-                    };
-                    
-                
-                    return (
-                      <View style={styles.appContainer} key={app.id}>
-                        <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', overflow: 'hidden' }}>
-                          <Image
-                            source={{ uri: app.appIconUrl }}
-                            style={{ width: 35, height: 35, marginRight: 15, borderRadius: 10 }}
-                            resizeMode="contain"
-                          />
-                          <View style={{display: 'flex',flexDirection: 'column',maxWidth: '70%',minWidth: '70%'}}>
-                            <Text style={{ fontFamily: 'OutfitRegular' }}>{app.name}</Text>
-                            <View style={styles.progressBarContainer}>
-                            <View
-                              style={[
-                                styles.progressBar,
-                                { width: `${percentage}%`, backgroundColor: getColor(percentage) },
-                              ]}
-                            />
-                          </View>
-                          </View>
-                        </View>
-                        <View>
-                          <Text style={{ fontFamily: 'OutfitMedium', color: '#000' }}>{convertTime(app.totalMinutes)}</Text>
-                        </View>
-                      </View>
-                    )
-                  })
-                }
-              </View>
-            ) : (
-              <View style={styles.topApps}>
-                <View style={{ display: 'flex', flexDirection: 'row',justifyContent: 'space-between',paddingHorizontal: 10, marginVertical: 20,width: '100%' }}>
-                  <View>
-                    <View style={{ marginBottom: 10 }}>
-                      <Text style={{ fontFamily: 'OutfitRegular', fontSize: 14, color: '#404040' }}>Screen Time</Text>
-                    </View>
-                    <Text style={{ fontFamily: 'OutfitSemiBold', fontSize: 25, color: '#4A7676' }}>0h 0m</Text>
-                  </View>
-                  <View>
-                    <View style={{ marginBottom: 10 }}>
-                      <Text style={{ fontFamily: 'OutfitRegular', fontSize: 14, color: '#404040' }}>Time Remaining</Text>
-                    </View>
-                    <Text style={{ fontFamily: 'OutfitSemiBold', fontSize: 25, color: 'red' }}>{convertTime(userData?.screentimeLimit*60)}</Text>
-                  </View>
-                </View>
-                {
-                  userData?.selectedApps.map((app) => {
-                    const percentage = 0; // Assuming 180 is the limit
-                
-                    // Define the dynamic color based on percentage
-                    const getColor = (percent) => {
-                      if (percent < 25) return '#A2C8FF'; 
-                      if (percent < 50) return '#A8D5BA'; 
-                      if (percent < 75) return '#FFB84D'; 
-                      return '#FF5E4F'; 
-                    };
-                    
-                
-                    return (
-                      <View style={styles.appContainer} key={app.id}>
-                        <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', overflow: 'hidden' }}>
-                          <Image
-                            source={{ uri: app.appIconUrl }}
-                            style={{ width: 35, height: 35, marginRight: 15, borderRadius: 10 }}
-                            resizeMode="contain"
-                          />
-                          <View style={{display: 'flex',flexDirection: 'column',maxWidth: '70%',minWidth: '70%'}}>
-                            <Text style={{ fontFamily: 'OutfitRegular' }}>{app.appName}</Text>
-                            <View style={styles.progressBarContainer}>
-                            <View
-                              style={[
-                                styles.progressBar,
-                                { width: `${percentage}%`, backgroundColor: getColor(percentage) },
-                              ]}
-                            />
-                          </View>
-                          </View>
-                        </View>
-                        <View>
-                          <Text style={{ fontFamily: 'OutfitMedium', color: '#000' }}>0m</Text>
-                        </View>
-                      </View>
-                    )
-                  })
-                }
-              </View>
-            )
-          }
 
-        <View style={styles.chartContainer}>
-          <Animated.View style={{display: 'flex',flexDirection: 'row',justifyContent: 'space-between',width: '100%', opacity: textOpacity,paddingHorizontal: 15}}>
-            <View style={{marginBottom: 20,display: 'flex',alignSelf: 'flex-start',padding: 10}}>
-              <View style={{ marginBottom: 10 }}>
-                <Text style={{ fontFamily: 'OutfitRegular', fontSize: 14, color: '#404040' }}>This Week</Text>
-              </View>
-              <Text style={{ fontFamily: 'OutfitSemiBold', fontSize: 25, color: '#4A7676' }}>{convertTime(weeklyScreentime)}</Text>
-            </View>
-            <View style={{marginBottom: 20,display: 'flex',alignSelf: 'flex-start',padding: 10}}>
-              <View style={{ marginBottom: 10 }}>
-                <Text style={{ fontFamily: 'OutfitRegular', fontSize: 14, color: '#404040' }}>{dayAbbreviations[chartData?.labels?.[selectedPointIndex]]}</Text>
-              </View>
-              <Text style={{ fontFamily: 'OutfitSemiBold', fontSize: 25, color: '#4A7676' }}>{convertTime(chartData?.data?.[selectedPointIndex])}</Text>
-            </View>
-          </Animated.View>
-
-          <Animated.View style={{ opacity: animatedOpacity }}>
-            <LineChart
-              data={{
-                labels: chartData?.labels?.length ? chartData.labels : ['No Data'], 
-                datasets: [{ data: chartData.data.length ? chartData.data : [0] }],
-              }}
-              width={Dimensions.get('window').width* 0.95 - 40} // Parent container's width 90% - padding*2
-              height={250}
-              chartConfig={{
-                backgroundColor: '#fff',
-                backgroundGradientFrom: '#fff',
-                backgroundGradientTo: '#fff',
-                decimalPlaces: 0,
-                color: (opacity) => `rgba(62, 193, 141, ${opacity})`, // Bright blue for the line
-                labelColor: (opacity) => `rgba(0, 0, 0, ${opacity})`,
-                strokeWidth: 4, // Thicker line for more visibility
-                style: {
-                  borderRadius: 16,
-                },
-                propsForDots: {
-                  r: '6', // Larger dots
-                  strokeWidth: '2',
-                  stroke: '#4A7676', // Warm orange border for dots
-                },
-              }}
-              withDots={true}
-              bezier
-              renderDotContent={({ x, y, index }) => {
-                const isSelected = selectedPointIndex === index;
-                
-                return (
-                  <Animated.View
-                    key={index}
-                    style={{
-                      width: isSelected ? animatedValue : 12, // Larger size for selected dot
-                      height: isSelected ? animatedValue : 12,
-                      borderRadius: 12,
-                      backgroundColor: isSelected ? '#4A7676' : '#ffffff',
-                      borderWidth: isSelected ? 0 : 2,
-                      borderColor: 'rgba(74, 118, 118, 1)', // Glowing orange border for selected dots
-                      position: 'absolute',
-                      left: isSelected ? x-4 : x - 6,
-                      top: isSelected ? y-4 : y - 6,
-                      elevation: isSelected ? 8 : 4, // Elevation for better pop effect
-                      shadowColor: '#4A7676',
-                      shadowOffset: { width: 0, height: 5 },
-                      shadowOpacity: 0.3,
-                      shadowRadius: 5,
-                    }}
-                  />
-                );
-              }}
-              formatYLabel={formatYLabel}
-              segments={chartData.data.every(value => value === 0) ? 0 : 4}
-              onDataPointClick={handleDataPointClick}
-              style={styles.chart}
-            />
-          </Animated.View>
-        </View>
-        <View style={styles.realityStats}>
-          <View style={styles.interestsContainer}>
-            {/* <View style={{marginBottom: 20}}>
-              <Text style={[styles.timeText,{color: '#404040',fontFamily: 'OutfitMedium'}]}>Make It Count.</Text>
-            </View> */}
-            {overtheLimit > 0 ? (
-              <View style={styles.messageContainer}>
-                <Text style={styles.mainText}>
-                  You've <Text style={styles.wastedText}>Wasted</Text> a total of{' '}
-                  <Text style={[styles.timeText,{color: '#E70000'}]}>{Math.abs(overtheLimit)}</Text> minutes on screen time.
-                </Text>
-                <Text style={styles.detailsText}>
-                  That's <Text style={[styles.timeText,{color: '#E70000'}]}>{convertTime(Math.abs(overtheLimit))}</Text> spent more than you intended.
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.messageContainer}>
-                <Text style={styles.mainText}>
-                  You've <Text style={styles.savedText}>Saved</Text> a total of{' '}
-                  <Text style={styles.timeText}>{Math.abs(overtheLimit)}</Text> minutes on screen time.
-                </Text>
-                <Text style={styles.detailsText}>
-                  That's <Text style={styles.timeText}>{convertTime(Math.abs(overtheLimit))}</Text> spent less than you intended.
-                </Text>
-              </View>
-            )}
-            {/* <Text style={styles.interestsTitle}>You could've used this time for:</Text>
-            <View style={styles.interestsGrid}>
-              {[
-                { text: '💪  Working out', icon: 'fitness' },
-                { text: '🧘‍♀️  Meditating', icon: 'meditation' },
-                { text: '🍎  Making healthy meals', icon: 'fast-food' },
-                { text: '👨‍👩‍👧‍👦  Spending time with loved ones', icon: 'people' },
-                { text: '📖  Reading books', icon: 'book' },
-                { text: '✍️   Journaling', icon: 'create' },
-                { text: '🧠  Learning a new skill', icon: 'school' },
-                { text: '⚽  Playing a sport', icon: 'sports' },
-              ].map((interest, index) => (
-                <View style={styles.interestCard} key={index}>
-                  <Text style={styles.interestText}>{interest.text}</Text>
-                </View>
-              ))}
-            </View> */}
+          <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',margin: 'auto',backgroundColor: '#171717',padding: 10,borderRadius: 5,marginTop: 10}}>
+            <TouchableWithoutFeedback onPress={() => setOpen(false)}>
+              <DropDownPicker
+                  open={open}
+                  value={selectedApp}
+                  items={availableApps}
+                  setOpen={setOpen}
+                  setValue={setSelectedApp}
+                  setItems={setAvailableApps}
+                  placeholder="Select an App"
+                  dropDownContainerStyle={styles.dropdownContainer}
+                  style={styles.dropdown}
+                  textStyle={styles.dropdownText}
+                  ArrowDownIconComponent={({ style }) => (
+                    <Ionicons name="chevron-down" size={20} color="#ddd" />
+                  )}
+                  ArrowUpIconComponent={({ style }) => (
+                    <Ionicons name="chevron-up" size={20} color="#ddd" />
+                  )}
+                  TickIconComponent={({ style }) => (
+                    <AntDesign name="check" size={20} color="#ddd" />
+                  )}
+                />
+            </TouchableWithoutFeedback>
           </View>
-        </View>
 
+          <View style={styles.chartContainer}>
+              {selectedPointIndex !== null
+                    ? 
+                    <View style={{display: 'flex',flexDirection: 'column',justifyContent: 'space-between',paddingHorizontal: 15}}>
+                      <View style={{marginBottom: 10}}>
+                        <Text style={[styles.chartHeader,{color: '#fff'}]}>{chartData?.ranges?.[selectedPointIndex]}</Text>
+                      </View>
+                      <View style={{marginTop: 10,display: 'flex',flexDirection: 'column'}}>
+                        <View style={{marginBottom: 10}}>
+                          <Text style={[styles.chartHeader,{fontSize: 15,color: 'grey'}]}>Screen Time</Text>
+                        </View>
+                        <Text style={[styles.chartHeader,{fontFamily: 'OutfitSemiBold',color: '#00A663'}]}>{formatTime(chartData?.data?.[selectedPointIndex])}</Text>
+                      </View>
+                    </View>
+                    : chartData.labels.length
+                    ? 
+                    <View style={{display: 'flex',flexDirection: 'column',justifyContent: 'space-between',paddingHorizontal: 15}}>
+                      <View style={{marginBottom: 10}}>
+                        <Text style={[styles.chartHeader,{color: '#fff'}]}>{chartData?.ranges[chartData?.labels?.length - 1]}</Text>
+                      </View>
+                      <View style={{marginTop: 10}}>
+                        <Text style={[styles.chartHeader,{color: '#fff'}]}>{formatTime(chartData?.data[chartData?.data?.length - 1])}</Text>
+                      </View>
+                    </View>
+                    : 
+                    <Text>No data available</Text>
+                  }
+              <Animated.View style={{ opacity: animatedOpacity,marginTop: 20}}>
+                <LineChart
+                  data={{
+                    labels: updatedLabels?.length ? updatedLabels : ['No Data'], // Use updated month names
+                    datasets: [{ data: chartData?.data?.length ? chartData?.data : [0] }],
+                  }}
+                  width={Dimensions.get('window').width - 60} // Parent container's width 90% - padding*2
+                  height={200}
+                  chartConfig={{
+                    backgroundColor: '#171717',
+                    backgroundGradientFrom: '#171717',
+                    backgroundGradientTo: '#171717',
+                    decimalPlaces: 0,
+                    color: (opacity) => `rgba(0, 166, 99, ${opacity})`, // Bright blue for the line
+                    labelColor: (opacity) => `rgba(255, 255, 255, ${opacity})`,
+                    strokeWidth: 4, // Thicker line for more visibility
+                    style: {
+                      borderRadius: 16,
+                    },
+                    propsForDots: {
+                      r: '6', // Larger dots
+                      strokeWidth: '2',
+                      stroke: '#00A663', // Warm orange border for dots
+                    },
+                  }}
+                  withDots={true} // Disable default dots
+                  bezier
+                  renderDotContent={({ x, y, index }) => {
+                    const isSelected = selectedPointIndex === index;
+                    
+                    return (
+                      <Animated.View
+                        key={index}
+                        style={{
+                          width: isSelected ? animatedValue : 12, // Larger size for selected dot
+                          height: isSelected ? animatedValue : 12,
+                          borderRadius: 12,
+                          backgroundColor: isSelected ? '#00A663' : '#ffffff',
+                          borderWidth: isSelected ? 0 : 2,
+                          borderColor: 'rgba(74, 118, 118, 1)', // Glowing orange border for selected dots
+                          position: 'absolute',
+                          left: isSelected ? x-4 : x - 6,
+                          top: isSelected ? y-4 : y - 6,
+                          elevation: isSelected ? 8 : 4, // Elevation for better pop effect
+                          shadowColor: '#00A663',
+                          shadowOffset: { width: 0, height: 5 },
+                          shadowOpacity: 0.3,
+                          shadowRadius: 5,
+                        }}
+                      />
+                    );
+                  }}
+                  formatYLabel={formatTime}
+                  segments={chartData?.data?.length}
+                  onDataPointClick={handleDataPointClick}
+                  style={styles.chart}
+                />
+              </Animated.View>
+              
+              <View style={styles.dateCategory}>
+                {['year', 'month', 'week'].map((key) => (
+                  <Pressable style={{backgroundColor: '#212121',}} key={key} onPress={() => handlePress(key)}>
+                    <Animated.View style={[styles.dateGroup, getStyleForGroup(key),{opacity: 1}]}>
+                      <Text style={{ fontFamily: 'OutfitRegular',color:'#ddd' }}>
+                        {key.charAt(0).toUpperCase() + key.slice(1)}ly
+                      </Text>
+                    </Animated.View>
+                  </Pressable>
+                ))}
+              </View>
+          </View>
+        {
+          insights.length
+          ?
+          <View style={styles.insightStats}>
+            <View style={styles.interestsContainer}>
+              <View style={{marginBottom: 20}}>
+                <Text style={[styles.timeText,{color: '#ddd',fontFamily: 'OutfitMedium'}]}>Projections</Text>
+              </View>
+              {overtheLimit > 0 ? (
+                <View style={styles.messageContainer}>
+                  <View>
+                    <Text style={{ fontFamily: 'OutfitRegular', fontSize: 16, color: '#404040' }}>Over Spent</Text> 
+                  </View>
+                  <View>
+                    <Text style={[styles.timeText,{color: '#ddd',fontSize: 18}]}>{convertTime(Math.abs(overtheLimit))}</Text> 
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.messageContainer}>
+                  <View>
+                    <Text style={{ fontFamily: 'OutfitRegular', fontSize: 16, color: 'grey' }}>Time Saved</Text> 
+                  </View>
+                  <View>
+                    <Text style={[styles.timeText,{fontSize: 18,color: '#ddd'}]}>{convertTime(Math.abs(overtheLimit))}</Text> 
+                  </View>
+                </View>
+              )}
+              <View style={styles.messageContainer}>
+                  <View>
+                    <Text style={{ fontFamily: 'OutfitRegular', fontSize: 16, color: 'grey' }}>Daily Average</Text> 
+                  </View>
+                  <View>
+                    <Text style={[styles.timeText,{fontSize: 18,color: '#ddd'}]}>{convertTime(insights?.[0]?.avgDaily)}</Text> 
+                  </View>
+              </View>
+              <View style={styles.messageContainer}>
+                  <View>
+                    <Text style={{ fontFamily: 'OutfitRegular', fontSize: 16, color: 'grey' }}>Weekly Change</Text> 
+                  </View>
+                  <View>
+                    {
+                      Number(insights?.[1]?.percentageChange)>0
+                      ?
+                      <Text style={[styles.timeText,{fontSize: 18,color: '#ddd'}]}>+ {Math.abs(Number(insights?.[1]?.percentageChange))} %</Text> 
+                      :
+                      <Text style={[styles.timeText,{fontSize: 18,color: '#ddd'}]}>- {Math.abs(Number(insights?.[1]?.percentageChange))} %</Text> 
+                    }
+                  </View>
+              </View>
+              <View style={styles.messageContainer}>
+                  <View>
+                    <Text style={{ fontFamily: 'OutfitRegular', fontSize: 16, color: 'grey' }}>5 Year Projection</Text> 
+                  </View>
+                  <View>
+                    <Text style={[styles.timeText,{fontSize: 18,color: '#ddd'}]}>{insights?.[0]?.fiveYearDays} Days</Text> 
+                  </View>
+              </View>
+              <View style={styles.messageContainer}>
+                  <View>
+                    <Text style={{ fontFamily: 'OutfitRegular', fontSize: 16, color: 'grey' }}>50 Year Projection</Text> 
+                  </View>
+                  <View>
+                    <Text style={[styles.timeText,{fontSize: 18,color: '#ddd'}]}>{convertToYear(insights?.[0]?.fiftyYearDays)}</Text> 
+                  </View>
+              </View>
+            </View>
+          </View>
+          :
+          null
+        }
         </ScrollView>
-      </LinearGradient>
+      </View>
     );
   }
   else{
@@ -525,7 +808,9 @@ const styles = StyleSheet.create({
     flex: 1,
     // justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 20
+    paddingTop: 20,
+    backgroundColor: '#111',
+    position: 'relative'
   },
   scrollContent: {
     width: '95%',
@@ -534,132 +819,142 @@ const styles = StyleSheet.create({
     alignItems: 'center', // Center content if needed,
     paddingTop: 40
   },
-  topApps: {
-    width: '100%',
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
-    // iOS shadow
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 5,
-    // Android shadow
-    elevation: 5,
-    marginTop: 10,
-  },
-
   headerText: {
     fontSize: 25,
-    color: '#636e72', // Subtle gray text
+    color: '#ddd', // Subtle gray text
     fontFamily: 'OutfitRegular',
     opacity: 0.5
   },
   headerUserName: {
     fontSize: 40,
-    color: '#404040',
+    color: '#ddd',
     fontFamily: 'OutfitMedium',
   },
 
-  screenTimeLabel: {
-    fontSize: 16,
-    color: '#636e72',
-    fontFamily: 'OutfitRegular',
-  },
-
-  screenTime: {
-    fontSize: 30,
-    fontFamily: 'OutfitSemiBold',
-    color: '#000',
-    marginTop: 5,
-  },
-
-  remainingTimeLabel: {
-    fontSize: 16,
-    color: '#636e72',
-    fontFamily: 'OutfitRegular',
-  },
-
-  remainingTime: {
-    fontSize: 30,
-    fontFamily: 'OutfitSemiBold',
-    color: '#FF5E4F',
-    marginTop: 5,
-  },
-
-  appContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-    padding: 15,
-    backgroundColor: '#FFFFFF88',
-    borderRadius: 12,
+  shadow: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.1,
     shadowRadius: 5,
     elevation: 5,
-    borderWidth: 1,
-    borderColor: '#eee',
   },
-
-  appDetails: {
+  insightStats: {
+    flex: 1,
+    marginTop: 10,
+    width: '100%'
+  },
+  messageContainer: {
+    // marginBottom: 20,
+    paddingVertical: 10,
+    display: 'flex',
     flexDirection: 'row',
-    alignItems: 'center',
-    maxWidth: '70%',
+    justifyContent: 'space-between',
+    alignItems: 'center'
   },
-
-  appIcon: {
-    width: 40,
-    height: 40,
-    marginRight: 15,
-    borderRadius: 10,
-    backgroundColor: '#e0e0e0',
+  timeText: {
+    fontFamily: 'OutfitSemiBold',
+    fontSize: 25,
+    color: '#4A7676',
   },
-
-  appInfo: {
-    flexDirection: 'column',
-    maxWidth: '70%',
+  interestsContainer: {
+    backgroundColor: '#171717',
+    borderRadius: 5,
+    padding: 20,
+    marginTop: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 5,
+    elevation: 5,
+    minWidth: '100%',
+    display: 'flex',
+    flexDirection: 'column'
   },
-
-  appName: {
-    fontSize: 16,
-    color: '#404040',
+  chart: {
+    marginVertical: 12,
+  },
+  label: {
+    fontSize: 18,
     fontFamily: 'OutfitRegular',
-    marginBottom: 5,
+    marginBottom: 10,
   },
-
-  progressBarContainer: {
-    height: 8,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 5,
-    marginTop: 8,
-    width: '100%',
-  },
-
-  progressBar: {
-    height: '100%',
-    borderRadius: 5,
-  },
-
-  appTime: {
-    fontFamily: 'OutfitMedium',
-    fontSize: 16,
+  chartHeader: {
+    fontFamily: 'OutfitRegular',
     color: '#404040',
+    fontSize: 22
   },
-  chartContainer: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#f5f4f4',
-    borderRadius: 20,
-    paddingVertical: 15,
-    marginTop: 20,
+  dateCategory: {
+    display: 'flex',
+    flexDirection: 'row',
+    padding: 5,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    margin: 'auto',
+    backgroundColor: '#212121',
+
+    // iOS shadow
+    shadowColor: '#212121',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    // Android shadow
+    elevation: 5,
+  },
+  dateGroup: {
+    backgroundColor: '#212121',
+    padding: 10,
+    paddingHorizontal: 15,
+    borderRadius: 5,
+    marginHorizontal: 2
+  },
+  dropdown: {
+    width: '100%',
 
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
+    margin: 'auto',
+
+    backgroundColor: '#171717',
+    borderWidth: 0,
+  },
+  dropdownContainer: {
+    width: '100%',
+    borderWidth: 0,
+    marginTop: 15,
+    padding: 10,
+    backgroundColor: '#212121',
+  
+    // iOS shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    // Android shadow
+    elevation: 5,
+    minHeight: 250,
+  },
+  dropdownText: {
+    fontSize: 14,
+    color: '#ddd',
+    fontFamily: 'OutfitRegular',
+  },
+  icon: {
+    width: 30, // Adjust as needed
+    height: 30,
+    resizeMode: 'contain',
+    marginRight: 10, // Space between icon and label
+    borderRadius: 5
+  },
+  chartContainer: {
+    backgroundColor: '#171717',
+    borderRadius: 5,
+    paddingVertical: 15,
+    marginTop: 20,
+    paddingHorizontal: 10,
+
+    width: '100%',
     
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -668,108 +963,13 @@ const styles = StyleSheet.create({
     // Android shadow
     elevation: 5,
   },
-  chart: {
-    marginVertical: 8,
-  },
-  label: {
-    fontSize: 18,
-    fontFamily: 'OutfitRegular',
-    marginBottom: 10,
-  },
-  chartHeader: {
-    fontFamily: 'OutfitMedium',
-    color: '#404040',
-    fontSize: 22
-  },
-  shadow: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  realityStats: {
-    flex: 1,
-    marginTop: 10,
-    width: '100%'
-  },
-  messageContainer: {
-    // marginBottom: 20,
-    paddingVertical: 10,
-  },
-  mainText: {
-    fontFamily: 'OutfitRegular',
-    fontSize: 18,
-    color: '#404040',
-    lineHeight: 25,
-    marginBottom: 10,
-  },
-  wastedText: {
-    fontFamily: 'OutfitSemiBold',
-    fontSize: 25,
-    color: '#E70000', // Wasted time in red
-  },
-  savedText: {
-    fontFamily: 'OutfitSemiBold',
-    fontSize: 25,
-    color: '#4A7676', // Saved time in green
-  },
-  timeText: {
-    fontFamily: 'OutfitSemiBold',
-    fontSize: 25,
-    color: '#4A7676',
-  },
-  detailsText: {
-    fontFamily: 'OutfitRegular',
-    fontSize: 16,
-    color: '#404040',
-    marginTop: 5,
-  },
-  interestsContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    padding: 20,
-    marginTop: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 5,
-    elevation: 5,
-    minWidth: '100%'
-  },
-  // interestsTitle: {
-  //   fontFamily: 'OutfitSemiBold',
-  //   fontSize: 18,
-  //   color: '#4A7676',
-  //   marginBottom: 15,
-  // },
-  // interestsGrid: {
-  //   flexDirection: 'row',
-  //   flexWrap: 'wrap',
-  //   justifyContent: 'flex-start',
-  //   marginTop: 10,
-  // },
-  // interestCard: {
-  //   // width: '45%', // Two items per row
-  //   marginBottom: 15,
-  //   marginHorizontal: 5,
-  //   padding: 10,
-  //   backgroundColor: '#F9FBFA',
-  //   borderRadius: 12,
-  //   shadowColor: '#000',
-  //   shadowOffset: { width: 0, height: 2 },
-  //   shadowOpacity: 0.1,
-  //   shadowRadius: 5,
-  //   elevation: 5,
-
-  //   display: 'flex',
-  //   justifyContent: 'center',
-  //   alignItems: 'center'
-  // },
-  // interestText: {
-  //   fontFamily: 'OutfitRegular',
-  //   fontSize: 16,
-  //   color: '#404040',
-  //   textAlign: 'center',
-  // },
+  logBtn: {
+    backgroundColor: '#00A663',
+    padding: 10,
+    borderRadius: 50,
+    position: 'absolute',
+    bottom: 40,
+    right: 40,
+    zIndex: 2
+  }
 });

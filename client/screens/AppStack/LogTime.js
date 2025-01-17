@@ -33,7 +33,7 @@ import LoadingScreen from '../../components/LoadingScreen';
 import AppList from '../../AppList.json';
 import _ from 'lodash';
 
-const LogTime = ({ setIsNavbarVisible }) => {
+const LogTime = () => {
   const { width } = Dimensions.get('window');
   const navigation = useNavigation(); 
 
@@ -45,7 +45,7 @@ const LogTime = ({ setIsNavbarVisible }) => {
   const [screentimeHours,setScreentimeHours] = useState(0);
   const [screentimeMinutes,setScreentimeMinutes] = useState(0);
   const [screentimeLimit,setScreentimeLimit] = useState(null);
-  const [progressValue, setProgressValue] = useState(null);
+  const [progressValue, setProgressValue] = useState(0);
   const [inputValues, setInputValues] = useState({}); 
   const [btnDisabled,setBtnDisabled] = useState(true);
   const [convertedTimeLimit,setConvertedTimeLimit] = useState(null);
@@ -237,36 +237,36 @@ const LogTime = ({ setIsNavbarVisible }) => {
         gradient: ['#FF6F6F', '#FF4C4C', '#8B0000']
       };
     }
-    if (time == 0 && screentimeMinutes==0) {
+    if (time == 0 && screentimeMinutes == 0) {
       return {
-        color: '#E7F6F6',
-        gradient: ['#E7F6F6', '#F5FAFA', '#D1F0F0']
+        color: '#00A663', // Original green
+        gradient: ['#00C77F', '#00A663', '#00854F'], // Vibrant green gradient
       };
     } else if (time < 2) {
       return {
-        color: '#A8DADA', // A lighter version of #6D9E9E
-        gradient: ['#C2EDED', '#A8DADA', '#D6F5F5'] // Lighter gradient shades
+        color: '#008F57', // Slightly darker green
+        gradient: ['#00A663', '#008F57', '#006E44'], // Darker green tones
       };
-    } else if (time >= 2 && time<4) {
+    } else if (time >= 2 && time < 4) {
       return {
-        color: '#6D9E9E',
-        gradient: ['#8AC7C7', '#6D9E9E', '#A2D4D4']
+        color: '#007949', // Dark green
+        gradient: ['#008F57', '#007949', '#005E37'], // Subtle dark shades
       };
     } else if (time <= 4) {
       return {
-        color: '#449292',
-        gradient: ['#2F8E8E', '#449292', '#006E6E']
+        color: '#005F3B', // Very dark green
+        gradient: ['#007949', '#005F3B', '#004628'], // Deep dark green tones
       };
     } else if (time <= 6) {
       return {
-        color: '#2A8A8A',
-        gradient: ['#004F4F', '#026767', '#2A8A8A']
+        color: '#004828', // Near-black green
+        gradient: ['#005F3B', '#004828', '#00361E'], // Near-black green tones
       };
     } else {
-      return{
-        color: '#026767',
-        gradient: ['#003A3A', '#004E4E', '#002828']
-      }
+      return {
+        color: '#00321E', // Almost black green
+        gradient: ['#004828', '#00321E', '#001A0F'], // Black-green tones
+      };
     }
   };
 
@@ -427,12 +427,7 @@ const LogTime = ({ setIsNavbarVisible }) => {
   if(userData){
     return (
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <LinearGradient
-            colors={['#E7F6F6', '#FBEFEF', '#F9FBFA']}
-            style={[styles.container, { padding: 20 }]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
+          <View style={[styles.container,{padding: 20}]}>
             <ScrollView ref={scrollViewRef} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
               <Animated.View
                 style={{
@@ -440,8 +435,13 @@ const LogTime = ({ setIsNavbarVisible }) => {
                   transform: [{ translateY: slideAnim }],
                 }}
               >
-                <View style={{marginVertical: 15,display: 'flex',justifyContent: 'center',alignItems: 'center'}}>
-                  <Text style={[styles.label,{fontSize: 26,fontFamily: 'OutfitMedium'}]}>Log Time</Text>
+                <View style={{marginVertical: 15,display: 'flex',flexDirection: 'row',justifyContent: 'center',alignItems: 'center',marginBottom: 20,position: 'relative'}}>
+                  <Pressable onPress={() => {
+                    navigation.goBack()
+                  }} style={{position: 'absolute',left: 10}}>
+                    <AntDesign name="arrowleft" size={24} color="#ddd" />
+                  </Pressable>
+                  <Text style={[styles.label,{fontSize: 26,fontFamily: 'OutfitMedium',marginBottom: 0}]}>Log Time</Text>
                 </View>
                 <View style={[styles.datePickerContainer,styles.shadow]}>
                   <Pressable
@@ -449,7 +449,7 @@ const LogTime = ({ setIsNavbarVisible }) => {
                     onPress={() => setShowCalendar(true)}
                   >
                     <View style={{position: 'absolute',left: 20}}>
-                      <FontAwesome5 name="calendar-alt" size={24} color="#4A7676" />
+                      <FontAwesome5 name="calendar-alt" size={24} color="#ddd" />
                     </View>
                     <View style={{display: 'flex',flexDirection: 'row'}}>
                       <View style={{marginHorizontal: 5}}>
@@ -501,14 +501,23 @@ const LogTime = ({ setIsNavbarVisible }) => {
                                     dayjs(localDate).format('DD-MMMM-YYYY').split('-')
                                   );
                                 }}
-                                headerButtonColor="#6D9E9E"
-                                selectedItemColor="#6D9E9E"
+                                headerButtonColor="#fff"
+                                selectedItemColor="#323232"
                                 selectedTextStyle={{
                                   fontWeight: 'bold',
-                                  color: '#fff',
+                                  color: '#00A663',
                                 }}
                                 todayContainerStyle={{
                                   borderWidth: 1,
+                                }}
+                                calendarTextStyle={{
+                                  color: '#ddd'
+                                }}
+                                headerTextStyle={{
+                                  color: '#ddd'
+                                }}
+                                weekDaysTextStyle={{
+                                  color: '#ddd',
                                 }}
                               />
   
@@ -533,12 +542,12 @@ const LogTime = ({ setIsNavbarVisible }) => {
                                     <View
                                       style={[
                                         styles.todayButton,
-                                        { backgroundColor: '#6D9E9E' },
+                                        { backgroundColor: '#323232' },
                                       ]}
                                     >
                                       <Text
                                         style={{
-                                          color: '#fff',
+                                          color: '#00A663',
                                           fontFamily: 'OutfitMedium',
                                         }}
                                       >
@@ -551,14 +560,14 @@ const LogTime = ({ setIsNavbarVisible }) => {
                                       paddingHorizontal: 15,
                                       paddingVertical: 10,
                                       borderRadius: 5,
-                                      backgroundColor: '#f5f5f4',
+                                      backgroundColor: '#323232',
                                     }}
                                     onPress={() => setShowCalendar(false)}
                                   >
                                     <Text
                                       style={{
                                         fontFamily: 'OutfitMedium',
-                                        color: '#404040',
+                                        color: '#00A663',
                                       }}
                                     >
                                       Select
@@ -582,20 +591,20 @@ const LogTime = ({ setIsNavbarVisible }) => {
                   </View>
                   <View style={{marginBottom: 20,position: 'relative',display: 'flex',justifyContent: 'center',alignItems:'center'}}>
                     <CircularProgress
-                        value={progressValue}
+                        value={progressValue ? progressValue : 0}
                         title={`${screentimeHours}h ${screentimeMinutes}m`}
                         radius={120}
                         titleColor='#fff'
                         titleFontSize={25}
                         activeStrokeColor={getThemeColors(screentimeHours).color}
-                        inActiveStrokeColor='#E7F6F6'
+                        inActiveStrokeColor='#404040'
                         inActiveStrokeOpacity={0.5}
                         inActiveStrokeWidth={40}
                         activeStrokeWidth={20}
                         showProgressValue={false}
                         titleStyle={{fontFamily: 'OutfitMedium',
                           zIndex: 1,
-                          color: (screentimeHours==0 && screentimeMinutes==0) ? '#6D9E9E' : '#fff'
+                          color: (screentimeHours==0 && screentimeMinutes==0) ? '#fff' : '#fff'
                         }}
                     />
                     <LinearGradient
@@ -649,7 +658,7 @@ const LogTime = ({ setIsNavbarVisible }) => {
                               fontSize: 17,
                               fontFamily: 'OutfitRegular',
                               textAlign: 'center',
-                              color: '#4A7676', // Teal for staying within the limit
+                              color: '#ddd', // Teal for staying within the limit
                             },
                           ]}
                         >
@@ -668,7 +677,7 @@ const LogTime = ({ setIsNavbarVisible }) => {
                           selectedValue={screentimeHours}
                           style={[styles.picker]}
                           onValueChange={(value) => setScreentimeHours(value)}
-                          itemStyle={{color: '#4A7676',height: 150}}
+                          itemStyle={{color: '#ddd',height: 150}}
                         >
                           {Array.from({ length: 25 }, (_, i) => (
                             <Picker.Item key={i} label={`${i}`} value={`${i}`} />
@@ -683,8 +692,8 @@ const LogTime = ({ setIsNavbarVisible }) => {
                           selectedValue={screentimeMinutes}
                           style={[styles.picker]}
                           onValueChange={(value) => setScreentimeMinutes(value)}
-                          itemStyle={{color: '#4A7676',height: 150}}
-                          selectionColor='#4A7676'
+                          itemStyle={{color: '#ddd',height: 150}}
+                          selectionColor='#ddd'
                         >
                           {Array.from({ length: 60 }, (_, i) => (
                             <Picker.Item key={i} label={`${i}`} value={`${i}`} />
@@ -720,7 +729,7 @@ const LogTime = ({ setIsNavbarVisible }) => {
                             <Text style={[styles.appName,{maxWidth: '70%'}]}>{app.appName}</Text>
                           </View>
                           <View style={{width: '20%',display: 'flex',flexDirection: 'row',alignItems: 'center',justifyContent: 'center'}}>
-                            <Text style={[styles.appName,{fontFamily: 'OutfitSemiBold',color: '#4A7676'}]}>{hours}h {mins}m</Text>
+                            <Text style={[styles.appName,{fontFamily: 'OutfitSemiBold',color: '#ddd'}]}>{hours}h {mins}m</Text>
                           </View>
                         </View>
                         <View style={styles.pickerContainer}>
@@ -730,7 +739,7 @@ const LogTime = ({ setIsNavbarVisible }) => {
                                 selectedValue={appValues.hours}
                                 style={[styles.picker]}
                                 onValueChange={(value) => handleInputChange(app.id, 'hours','minutes', value,'0')}
-                                itemStyle={{color: '#4A7676',height: 150}}
+                                itemStyle={{color: '#ddd',height: 150}}
                               >
                                 {Array.from({ length: 25 }, (_, i) => (
                                   <Picker.Item key={i} label={`${i}`} value={`${i}`} />
@@ -743,8 +752,8 @@ const LogTime = ({ setIsNavbarVisible }) => {
                                 selectedValue={appValues.minutes}
                                 style={[styles.picker]}
                                 onValueChange={(value) => handleInputChange(app.id, 'minutes','hours', value,'0')}
-                                itemStyle={{color: '#4A7676',height: 150}}
-                                selectionColor='#4A7676'
+                                itemStyle={{color: '#ddd',height: 150}}
+                                selectionColor='#ddd'
                               >
                                 {Array.from({ length: 60 }, (_, i) => (
                                   <Picker.Item key={i} label={`${i}`} value={`${i}`} />
@@ -766,16 +775,16 @@ const LogTime = ({ setIsNavbarVisible }) => {
                       <Text style={[styles.label,{textAlign: 'center',color: '#fff',marginBottom: 0,fontFamily: 'OutfitMedium'}]}>Update</Text>
                     </Pressable>
                     :
-                    <Pressable style={[styles.submitButton,styles.shadow,{backgroundColor: '#f5f4f4'}]}>
-                      <Text style={[styles.label,{textAlign: 'center',color: '#ddd',marginBottom: 0,fontFamily: 'OutfitMedium'}]}>Update</Text>
+                    <Pressable style={[styles.submitButton,styles.shadow,{backgroundColor: '#151515'}]}>
+                      <Text style={[styles.label,{textAlign: 'center',color: '#7777',marginBottom: 0,fontFamily: 'OutfitMedium'}]}>Update</Text>
                     </Pressable>
                   )
                   :
                   (
                     btnDisabled
                     ?
-                    <Pressable style={[styles.submitButton,styles.shadow,{backgroundColor: '#f5f4f4'}]}>
-                      <Text style={[styles.label,{textAlign: 'center',color: '#ddd',marginBottom: 0,fontFamily: 'OutfitMedium'}]}>Log</Text>
+                    <Pressable style={[styles.submitButton,styles.shadow,{backgroundColor: '#151515'}]}>
+                      <Text style={[styles.label,{textAlign: 'center',color: '#7777',marginBottom: 0,fontFamily: 'OutfitMedium'}]}>Log</Text>
                     </Pressable>
                     :
                     <Pressable onPress={handleSubmit} style={[styles.submitButton,styles.shadow]}>
@@ -785,14 +794,14 @@ const LogTime = ({ setIsNavbarVisible }) => {
                 }
               </Animated.View>
             </ScrollView>
-          </LinearGradient>
+          </View>
         </TouchableWithoutFeedback>
     );
   }
   else{
     return(
       <SafeAreaView style={[styles.container]}>
-        <ActivityIndicator size="large" color="#4A7676" />
+        <ActivityIndicator size="large" color="#ddd" />
       </SafeAreaView>
     )
   }
@@ -804,44 +813,37 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    padding: 20,
     paddingTop: 50,
+    backgroundColor: '#111'
   },
   datePickerContainer: {
       marginBottom: 30,
-      backgroundColor: '#fff',
-      padding: 15,
+      backgroundColor: '#171717',
+      padding: 10,
       borderRadius: 20,
   },
   datePickerButton: {
       height: 50,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: '#FFFFFF88',
-      borderRadius: 12,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.15,
-      shadowRadius: 5,
-      elevation: 5,
 
       flexDirection: 'row',
       position: 'relative'
   },
   dateText: {
       fontSize: 16,
-      color: '#4A7676',
+      color: '#ddd',
       fontFamily: 'OutfitMedium',
   },
   label: {
       fontSize: 16,
-      color: '#4A7676',
+      color: '#ddd',
       marginBottom: 10,
       fontFamily: 'OutfitRegular',
   },
   timeInputContainer: {
       marginBottom: 30,
-      backgroundColor: '#fff',
+      backgroundColor: '#171717',
       padding: 20,
       borderRadius: 20,
       display: 'flex',
@@ -869,7 +871,7 @@ const styles = StyleSheet.create({
   },
   appTimesContainer: {
       marginBottom: 20,
-      backgroundColor: '#fff',
+      backgroundColor: '#171717',
       padding: 20,
       borderRadius: 20,
       display: 'flex',
@@ -885,7 +887,7 @@ const styles = StyleSheet.create({
   },
   appName: {
       fontSize: 16,
-      color: '#4A7676',
+      color: '#ddd',
       fontFamily: 'OutfitRegular',
   },
   appInput: {
@@ -895,7 +897,7 @@ const styles = StyleSheet.create({
       borderRadius: 8,
       paddingHorizontal: 10,
       fontSize: 14,
-      color: '#4A7676',
+      color: '#ddd',
       textAlign: 'center',
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
@@ -905,7 +907,7 @@ const styles = StyleSheet.create({
 
   datePickerContainerCalendar: {
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#171717',
     padding: 15,
     borderRadius: 10,
     shadowRadius: 20,
@@ -946,7 +948,7 @@ const styles = StyleSheet.create({
     margin: 'auto'
   },
   datePickerContainerCalendar: {
-    backgroundColor: '#fff',
+    backgroundColor: '#171717',
     borderRadius: 10,
     padding: 20,
     elevation: 5,
@@ -991,7 +993,7 @@ const styles = StyleSheet.create({
   },
   pickerLabel: {
     fontSize: 18,
-    color: '#6D9E9E',
+    color: '#777',
     marginBottom: 5,
     fontFamily: 'OutfitRegular',
   },
@@ -1001,7 +1003,7 @@ const styles = StyleSheet.create({
     display: 'flex',
   },
   submitButton: {
-    backgroundColor: '#6D9E9E',
+    backgroundColor: '#171717',
     display: 'flex',
     alignItems: 'center',
     padding: 15,
