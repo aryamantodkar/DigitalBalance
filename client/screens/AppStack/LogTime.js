@@ -820,7 +820,7 @@ const styles = StyleSheet.create({
       marginBottom: 30,
       backgroundColor: '#171717',
       padding: 10,
-      borderRadius: 20,
+      borderRadius: 15,
   },
   datePickerButton: {
       height: 50,
@@ -845,7 +845,7 @@ const styles = StyleSheet.create({
       marginBottom: 30,
       backgroundColor: '#171717',
       padding: 20,
-      borderRadius: 20,
+      borderRadius: 15,
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center'
@@ -873,7 +873,7 @@ const styles = StyleSheet.create({
       marginBottom: 20,
       backgroundColor: '#171717',
       padding: 20,
-      borderRadius: 20,
+      borderRadius: 15,
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center'

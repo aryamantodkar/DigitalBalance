@@ -16,6 +16,7 @@ import {
 import ScreenLimitSetup from './screens/FirstLoginStack/ScreenLimitSetup';
 import HomePage from './screens/AppStack/HomePage';
 import LogTime from './screens/AppStack/LogTime';
+import Settings from './screens/AppStack/Settings';
 
 // This is the default configuration
 configureReanimatedLogger({
@@ -37,6 +38,7 @@ const AppStack = () => (
   <Stack.Navigator>
     <Stack.Screen name="Home" component={HomePage} options={{ headerShown: false }} />
     <Stack.Screen name="Track" component={LogTime} options={{ headerShown: false }} />
+    <Stack.Screen name="Settings" component={Settings} options={{ headerShown: false }} />
   </Stack.Navigator>
 );
 

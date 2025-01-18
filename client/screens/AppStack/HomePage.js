@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { StyleSheet, Text, View, Dimensions, Pressable,Image, Animated, ScrollView,ActivityIndicator, TouchableWithoutFeedback } from 'react-native';
+import { StyleSheet, Text, View, Dimensions, Pressable,Image,Modal , Animated, ScrollView,ActivityIndicator, TouchableWithoutFeedback } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import AppList from '../../AppList.json';
 import dayjs from 'dayjs';
@@ -10,7 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import utc from 'dayjs/plugin/utc';
 import isBetween from 'dayjs/plugin/isBetween';
-import { LineChart } from 'react-native-chart-kit';
+import { LineChart, ContributionGraph } from 'react-native-chart-kit';
 import DropDownPicker from 'react-native-dropdown-picker';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import Entypo from '@expo/vector-icons/Entypo';
@@ -33,8 +33,14 @@ const HomePage = () => {
   const [availableApps, setAvailableApps] = useState([
     { label: 'All Apps', value: 'All Apps', icon: () => (<AntDesign style={styles.icon} name="appstore-o" size={26} color="#ddd" />) },
   ]);
+  const [heatmapData,setHeatmapData] = useState(heatmapData);
+  const [streak,setStreak] = useState(0);
+
   const animatedValue = useRef(new Animated.Value(8)).current; // Ref for dot size animation
   const animatedOpacity = useRef(new Animated.Value(1)).current;
+
+  const screenWidth = Dimensions.get('window').width;
+  const screenHeight = Dimensions.get('window').height;
 
   const animatedValues = {
     year: new Animated.Value(groupBy === 'year' ? 1 : 0),
@@ -80,6 +86,15 @@ const HomePage = () => {
       const userDetails = await fetchUserDetails();
 
       const transformedData = records.map(transformScreentimeData);
+      
+      let heatmapData = transformedData.map(data => {
+        return {
+          date: data.date,
+          count: (data.totalScreentime/60)
+        }
+      })
+
+      heatmapData.sort((a, b) => new Date(a.date) - new Date(b.date));
 
       const appsMap = new Map();
       appsMap.set('All Apps', { label: 'All Apps', value: 'All Apps', appIconUrl: 'appstore-o' });
@@ -120,7 +135,11 @@ const HomePage = () => {
         }
       });
       const insights = generateInsights(transformedData);
+      const preprocessedData = preprocessData(heatmapData);
+      const streak = getLongestStreak(preprocessedData);
 
+      setHeatmapData(preprocessedData);
+      setStreak(streak);
       setAvailableApps(formattedApps);
       updateChartData(transformedData, groupBy, selectedApp);
       setInsights(insights);
@@ -575,6 +594,70 @@ const HomePage = () => {
     }
   }); 
 
+  const preprocessData = (data, numDays = 90) => {
+    const today = new Date();
+    const allDates = [];
+  
+    // Generate the past 90 days' dates
+    for (let i = 0; i < numDays; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
+      const formattedDate = date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+      allDates.push(formattedDate);
+    }
+  
+    // Create a map for the input data
+    const dataMap = new Map(data.map(item => [item.date, item.count]));
+  
+    // Fill missing dates with count = 0
+    const result = allDates.map(date => ({
+      date,
+      count: dataMap.get(date) || 0,
+    }));
+  
+    // Sort the result by date in ascending order (latest date should come at the end)
+    result.sort((a, b) => new Date(a.date) - new Date(b.date));
+  
+    return result;
+  };
+
+  const getLongestStreak = (data) => {
+    let longestStreak = 0;
+    let currentStreak = 0;
+    let previousDate = null;
+  
+    // Loop through the sorted data
+    for (let i = 0; i < data.length; i++) {
+      const currentDay = data[i];
+      const currentDate = new Date(currentDay.date);
+  
+      // Check if the current day has a screen time log (count > 0)
+      if (currentDay.count > 0) {
+        // If it's the first day or the current day is consecutive to the previous day within the same month
+        if (
+          previousDate === null ||
+          (currentDate.getMonth() === previousDate.getMonth() && currentDate.getFullYear() === previousDate.getFullYear() && currentDate.getDate() === previousDate.getDate() + 1)
+        ) {
+          currentStreak++;
+        } else {
+          // Reset streak if there's a gap (even if the current day has screen time)
+          currentStreak = 1;
+        }
+  
+        // Update the longest streak
+        longestStreak = Math.max(longestStreak, currentStreak);
+      } else {
+        // Reset the streak if count is 0 for any day
+        currentStreak = 0;
+      }
+  
+      // Update previousDate for next iteration
+      previousDate = currentDate;
+    }
+  
+    return longestStreak;
+  };
+
   if(userData){
     return (
       <View style={styles.container}>
@@ -584,17 +667,23 @@ const HomePage = () => {
           <Entypo name="plus" size={40} color="#171717" />
         </Pressable>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          <View style={{marginBottom: 10,display: 'flex',flexDirection: 'row',justifyContent: 'space-between',alignItems: 'center',width: '100%',paddingHorizontal: 10}}>
-            <View>
-              <Text style={styles.headerText}>Hello,</Text>
-              <Text style={styles.headerUserName}>Aryaman.</Text>
+          {
+            userData
+            ?
+            <View style={{marginBottom: 10,display: 'flex',flexDirection: 'row',justifyContent: 'space-between',alignItems: 'center',width: '100%',paddingHorizontal: 10}}>
+              <View>
+                <Text style={styles.headerText}>Hello,</Text>
+                <Text style={styles.headerUserName}>{userData.name.split(' ')[0]}.</Text>
+              </View>
+              <Pressable onPress={() => navigation.navigate('Settings')}>
+                <Ionicons name="settings" size={30} color="#ddd" />
+              </Pressable>
             </View>
-            <Pressable>
-              <Ionicons name="settings" size={30} color="#ddd" />
-            </Pressable>
-          </View>
+            :
+            null
+          }
 
-          <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',margin: 'auto',backgroundColor: '#171717',padding: 10,borderRadius: 5,marginTop: 10}}>
+          <View style={{display: 'flex',justifyContent: 'center',alignItems: 'center',margin: 'auto',backgroundColor: '#171717',padding: 10,borderRadius: 15,marginTop: 10}}>
             <TouchableWithoutFeedback onPress={() => setOpen(false)}>
               <DropDownPicker
                   open={open}
@@ -718,76 +807,113 @@ const HomePage = () => {
                 ))}
               </View>
           </View>
-        {
-          insights.length
-          ?
-          <View style={styles.insightStats}>
-            <View style={styles.interestsContainer}>
-              <View style={{marginBottom: 20}}>
-                <Text style={[styles.timeText,{color: '#ddd',fontFamily: 'OutfitMedium'}]}>Projections</Text>
-              </View>
-              {overtheLimit > 0 ? (
-                <View style={styles.messageContainer}>
-                  <View>
-                    <Text style={{ fontFamily: 'OutfitRegular', fontSize: 16, color: '#404040' }}>Over Spent</Text> 
-                  </View>
-                  <View>
-                    <Text style={[styles.timeText,{color: '#ddd',fontSize: 18}]}>{convertTime(Math.abs(overtheLimit))}</Text> 
-                  </View>
-                </View>
-              ) : (
-                <View style={styles.messageContainer}>
-                  <View>
-                    <Text style={{ fontFamily: 'OutfitRegular', fontSize: 16, color: 'grey' }}>Time Saved</Text> 
-                  </View>
-                  <View>
-                    <Text style={[styles.timeText,{fontSize: 18,color: '#ddd'}]}>{convertTime(Math.abs(overtheLimit))}</Text> 
-                  </View>
-                </View>
-              )}
-              <View style={styles.messageContainer}>
-                  <View>
-                    <Text style={{ fontFamily: 'OutfitRegular', fontSize: 16, color: 'grey' }}>Daily Average</Text> 
-                  </View>
-                  <View>
-                    <Text style={[styles.timeText,{fontSize: 18,color: '#ddd'}]}>{convertTime(insights?.[0]?.avgDaily)}</Text> 
-                  </View>
-              </View>
-              <View style={styles.messageContainer}>
-                  <View>
-                    <Text style={{ fontFamily: 'OutfitRegular', fontSize: 16, color: 'grey' }}>Weekly Change</Text> 
-                  </View>
-                  <View>
-                    {
-                      Number(insights?.[1]?.percentageChange)>0
-                      ?
-                      <Text style={[styles.timeText,{fontSize: 18,color: '#ddd'}]}>+ {Math.abs(Number(insights?.[1]?.percentageChange))} %</Text> 
-                      :
-                      <Text style={[styles.timeText,{fontSize: 18,color: '#ddd'}]}>- {Math.abs(Number(insights?.[1]?.percentageChange))} %</Text> 
-                    }
-                  </View>
-              </View>
-              <View style={styles.messageContainer}>
-                  <View>
-                    <Text style={{ fontFamily: 'OutfitRegular', fontSize: 16, color: 'grey' }}>5 Year Projection</Text> 
-                  </View>
-                  <View>
-                    <Text style={[styles.timeText,{fontSize: 18,color: '#ddd'}]}>{insights?.[0]?.fiveYearDays} Days</Text> 
-                  </View>
-              </View>
-              <View style={styles.messageContainer}>
-                  <View>
-                    <Text style={{ fontFamily: 'OutfitRegular', fontSize: 16, color: 'grey' }}>50 Year Projection</Text> 
-                  </View>
-                  <View>
-                    <Text style={[styles.timeText,{fontSize: 18,color: '#ddd'}]}>{convertToYear(insights?.[0]?.fiftyYearDays)}</Text> 
-                  </View>
-              </View>
-            </View>
+        <View style={{width: '100%',backgroundColor: '#171717',marginVertical: 20,minWidth: '100%',borderRadius: 15}}>
+          <View style={{marginBottom: 30,padding: 20,paddingBottom: 0}}>
+            <Text style={[styles.timeText,{color: '#ddd',fontFamily: 'OutfitMedium'}]}>Insights</Text>
           </View>
-          :
-          null
-        }
+          <View style={{display: 'flex',justifyContent: 'center',alignSelf: 'flex-start',width: '100%'}}>
+            <ContributionGraph
+              values={heatmapData}
+              endDate={new Date()}
+              numDays={80}
+              width={Dimensions.get('window').width*0.8}
+              height={220}
+              chartConfig={{
+                backgroundColor: '#171717',
+                backgroundGradientFrom: '#171717',
+                backgroundGradientTo: '#171717',
+                decimalPlaces: 0,
+                color: (opacity) => (opacity!=0.15 ? `rgba(0, 166, 99, ${opacity})` : `rgba(52, 52, 52, ${opacity})`), // Modify color when count is 0 (Gray for no activity)
+                labelColor: (opacity) => `rgba(255, 255, 255, ${opacity})`,
+                strokeWidth: 4, // Thicker line for more visibility
+                style: {
+                  borderRadius: 16,
+                },
+                
+              }}
+              gutterSize={4}
+              style={{marginLeft: 0}}
+            />
+            <View style={{marginTop: 10,display: 'flex',justifyContent: 'center',alignItems: 'center'}}>
+              <Text style={[styles.timeText,{color: 'grey',fontFamily: 'OutfitRegular',fontSize: 14}]}>Past 80 Days</Text>
+            </View>
+            {
+              insights.length
+              ?
+              <View style={styles.insightStats}>
+                <View style={styles.interestsContainer}>
+                  <View style={styles.messageContainer}>
+                      <View>
+                        <Text style={{ fontFamily: 'OutfitRegular', fontSize: 16, color: 'grey' }}>Max Days In A Row</Text> 
+                      </View>
+                      <View>
+                        <Text style={[styles.timeText,{fontSize: 18,color: '#ddd'}]}>{streak ? streak : 0} Days</Text> 
+                      </View>
+                  </View>
+                  {overtheLimit > 0 ? (
+                    <View style={styles.messageContainer}>
+                      <View>
+                        <Text style={{ fontFamily: 'OutfitRegular', fontSize: 16, color: '#404040' }}>Over Spent</Text> 
+                      </View>
+                      <View>
+                        <Text style={[styles.timeText,{color: '#ddd',fontSize: 18}]}>{convertTime(Math.abs(overtheLimit))}</Text> 
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.messageContainer}>
+                      <View>
+                        <Text style={{ fontFamily: 'OutfitRegular', fontSize: 16, color: 'grey' }}>Time Saved</Text> 
+                      </View>
+                      <View>
+                        <Text style={[styles.timeText,{fontSize: 18,color: '#ddd'}]}>{convertTime(Math.abs(overtheLimit))}</Text> 
+                      </View>
+                    </View>
+                  )}
+                  <View style={styles.messageContainer}>
+                      <View>
+                        <Text style={{ fontFamily: 'OutfitRegular', fontSize: 16, color: 'grey' }}>Daily Average</Text> 
+                      </View>
+                      <View>
+                        <Text style={[styles.timeText,{fontSize: 18,color: '#ddd'}]}>{convertTime(insights?.[0]?.avgDaily)}</Text> 
+                      </View>
+                  </View>
+                  <View style={styles.messageContainer}>
+                      <View>
+                        <Text style={{ fontFamily: 'OutfitRegular', fontSize: 16, color: 'grey' }}>Weekly Change</Text> 
+                      </View>
+                      <View>
+                        {
+                          Number(insights?.[1]?.percentageChange)>0
+                          ?
+                          <Text style={[styles.timeText,{fontSize: 18,color: '#ddd'}]}>+ {Math.abs(Number(insights?.[1]?.percentageChange))} %</Text> 
+                          :
+                          <Text style={[styles.timeText,{fontSize: 18,color: '#ddd'}]}>- {Math.abs(Number(insights?.[1]?.percentageChange))} %</Text> 
+                        }
+                      </View>
+                  </View>
+                  <View style={styles.messageContainer}>
+                      <View>
+                        <Text style={{ fontFamily: 'OutfitRegular', fontSize: 16, color: 'grey' }}>5 Year Projection</Text> 
+                      </View>
+                      <View>
+                        <Text style={[styles.timeText,{fontSize: 18,color: '#ddd'}]}>{insights?.[0]?.fiveYearDays} Days</Text> 
+                      </View>
+                  </View>
+                  <View style={styles.messageContainer}>
+                      <View>
+                        <Text style={{ fontFamily: 'OutfitRegular', fontSize: 16, color: 'grey' }}>50 Year Projection</Text> 
+                      </View>
+                      <View>
+                        <Text style={[styles.timeText,{fontSize: 18,color: '#ddd'}]}>{convertToYear(insights?.[0]?.fiftyYearDays)}</Text> 
+                      </View>
+                  </View>
+                </View>
+              </View>
+              : 
+              null
+            }
+          </View>
+        </View>
         </ScrollView>
       </View>
     );
@@ -820,7 +946,7 @@ const styles = StyleSheet.create({
     paddingTop: 40
   },
   headerText: {
-    fontSize: 25,
+    fontSize: 22,
     color: '#ddd', // Subtle gray text
     fontFamily: 'OutfitRegular',
     opacity: 0.5
@@ -858,7 +984,7 @@ const styles = StyleSheet.create({
   },
   interestsContainer: {
     backgroundColor: '#171717',
-    borderRadius: 5,
+    borderRadius: 10,
     padding: 20,
     marginTop: 10,
     shadowColor: '#000',
@@ -949,8 +1075,8 @@ const styles = StyleSheet.create({
   },
   chartContainer: {
     backgroundColor: '#171717',
-    borderRadius: 5,
-    paddingVertical: 15,
+    borderRadius: 15,
+    paddingVertical: 20,
     marginTop: 20,
     paddingHorizontal: 10,
 
@@ -971,5 +1097,5 @@ const styles = StyleSheet.create({
     bottom: 40,
     right: 40,
     zIndex: 2
-  }
+  },
 });
